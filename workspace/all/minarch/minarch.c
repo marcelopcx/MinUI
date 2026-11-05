@@ -608,37 +608,37 @@ typedef struct OptionList {
 } OptionList;
 
 static char* onoff_labels[] = {
-	"Off",
-	"On",
+	"No",
+	"Sí",
 	NULL
 };
 static char* scaling_labels[] = {
-	"Native",
-	"Aspect",
-	"Fullscreen",
-	"Cropped",
+	"Nativo",
+	"Proporción",
+	"Completo",
+	"Recortado",
 	NULL
 };
 static char* effect_labels[] = {
-	"None",
-	"Line",
-	"Grid",
+	"Ninguno",
+	"Líneas",
+	"Rejilla",
 	NULL
 };
 static char* sharpness_labels[] = {
-	"Sharp",
-	"Crisp",
-	"Soft",
+	"Nítido",
+	"Fino",
+	"Suave",
 	NULL
 };
 static char* tearing_labels[] = {
-	"Off",
-	"Lenient",
-	"Strict",
+	"No",
+	"Flexible",
+	"Estricto",
 	NULL
 };
 static char* max_ff_labels[] = {
-	"None",
+	"Ninguno",
 	"2x",
 	"3x",
 	"4x",
@@ -688,22 +688,22 @@ typedef struct ButtonMapping {
 } ButtonMapping;
 
 static ButtonMapping default_button_mapping[] = { // used if pak.cfg doesn't exist or doesn't have bindings
-	{"Up",			RETRO_DEVICE_ID_JOYPAD_UP,		BTN_ID_DPAD_UP},
-	{"Down",		RETRO_DEVICE_ID_JOYPAD_DOWN,	BTN_ID_DPAD_DOWN},
-	{"Left",		RETRO_DEVICE_ID_JOYPAD_LEFT,	BTN_ID_DPAD_LEFT},
-	{"Right",		RETRO_DEVICE_ID_JOYPAD_RIGHT,	BTN_ID_DPAD_RIGHT},
-	{"A Button",	RETRO_DEVICE_ID_JOYPAD_A,		BTN_ID_A},
-	{"B Button",	RETRO_DEVICE_ID_JOYPAD_B,		BTN_ID_B},
-	{"X Button",	RETRO_DEVICE_ID_JOYPAD_X,		BTN_ID_X},
-	{"Y Button",	RETRO_DEVICE_ID_JOYPAD_Y,		BTN_ID_Y},
+	{"Arriba",			RETRO_DEVICE_ID_JOYPAD_UP,		BTN_ID_DPAD_UP},
+	{"Abajo",		RETRO_DEVICE_ID_JOYPAD_DOWN,	BTN_ID_DPAD_DOWN},
+	{"Izquierda",		RETRO_DEVICE_ID_JOYPAD_LEFT,	BTN_ID_DPAD_LEFT},
+	{"Derecha",		RETRO_DEVICE_ID_JOYPAD_RIGHT,	BTN_ID_DPAD_RIGHT},
+	{"Botón A",	RETRO_DEVICE_ID_JOYPAD_A,		BTN_ID_A},
+	{"Botón B",	RETRO_DEVICE_ID_JOYPAD_B,		BTN_ID_B},
+	{"Botón X",	RETRO_DEVICE_ID_JOYPAD_X,		BTN_ID_X},
+	{"Botón Y",	RETRO_DEVICE_ID_JOYPAD_Y,		BTN_ID_Y},
 	{"Start",		RETRO_DEVICE_ID_JOYPAD_START,	BTN_ID_START},
 	{"Select",		RETRO_DEVICE_ID_JOYPAD_SELECT,	BTN_ID_SELECT},
-	{"L1 Button",	RETRO_DEVICE_ID_JOYPAD_L,		BTN_ID_L1},
-	{"R1 Button",	RETRO_DEVICE_ID_JOYPAD_R,		BTN_ID_R1},
-	{"L2 Button",	RETRO_DEVICE_ID_JOYPAD_L2,		BTN_ID_L2},
-	{"R2 Button",	RETRO_DEVICE_ID_JOYPAD_R2,		BTN_ID_R2},
-	{"L3 Button",	RETRO_DEVICE_ID_JOYPAD_L3,		BTN_ID_L3},
-	{"R3 Button",	RETRO_DEVICE_ID_JOYPAD_R3,		BTN_ID_R3},
+	{"Botón L1",	RETRO_DEVICE_ID_JOYPAD_L,		BTN_ID_L1},
+	{"Botón R1",	RETRO_DEVICE_ID_JOYPAD_R,		BTN_ID_R1},
+	{"Botón L2",	RETRO_DEVICE_ID_JOYPAD_L2,		BTN_ID_L2},
+	{"Botón R2",	RETRO_DEVICE_ID_JOYPAD_R2,		BTN_ID_R2},
+	{"Botón L3",	RETRO_DEVICE_ID_JOYPAD_L3,		BTN_ID_L3},
+	{"Botón R3",	RETRO_DEVICE_ID_JOYPAD_R3,		BTN_ID_R3},
 	{NULL,0,0}
 };
 static ButtonMapping button_label_mapping[] = { // used to lookup the retro_id and local btn_id from button name
@@ -748,6 +748,15 @@ static const char* device_button_names[LOCAL_BUTTON_COUNT] = {
 };
 
 
+static char* onoff_values[] = { "Off", "On", NULL };
+static char* scaling_values[] = { "Native", "Aspect", "Fullscreen", "Cropped", NULL };
+static char* effect_values[] = { "None", "Line", "Grid", NULL };
+static char* sharpness_values[] = { "Sharp", "Crisp", "Soft", NULL };
+static char* tearing_values[] = { "Off", "Lenient", "Strict", NULL };
+static char* max_ff_values[] = { "None", "2x", "3x", "4x", "5x", "6x", "7x", "8x", NULL };
+static char* overclock_values[] = { "Powersave", "Normal", "Performance", NULL };
+// los valores (en inglés) son los que se guardan en los .cfg; las etiquetas son solo lo que se muestra
+
 // NOTE: these must be in BTN_ID_ order also off by 1 because of NONE (which is -1 in BTN_ID_ land)
 static char* button_labels[] = {
 	"NONE", // displayed by default
@@ -786,9 +795,9 @@ static char* button_labels[] = {
 	NULL,
 };
 static char* overclock_labels[] = {
-	"Powersave",
+	"Ahorro",
 	"Normal",
-	"Performance",
+	"Potencia",
 	NULL,
 };
 
@@ -815,7 +824,7 @@ static inline char* getScreenScalingDesc(void) {
 		return "Native uses integer scaling. Aspect uses core\nreported aspect ratio. Fullscreen has non-square\npixels. Cropped is integer scaled then cropped.";
 	}
 	else {
-		return "Native uses integer scaling.\nAspect uses core reported aspect ratio.\nFullscreen has non-square pixels.";
+		return "Nativo: escala entera.\nProporción: la del juego.\nCompleto: llena la pantalla.";
 	}
 }
 static inline int getScreenScalingCount(void) {
@@ -840,82 +849,82 @@ static struct Config {
 		.options = (Option[]){
 			[FE_OPT_SCALING] = {
 				.key	= "minarch_screen_scaling", 
-				.name	= "Screen Scaling",
+				.name	= "Escalado",
 				.desc	= NULL, // will call getScreenScalingDesc()
 				.default_value = 1,
 				.value = 1,
 				.count = 3, // will call getScreenScalingCount()
-				.values = scaling_labels,
+				.values = scaling_values,
 				.labels = scaling_labels,
 			},
 			[FE_OPT_EFFECT] = {
 				.key	= "minarch_screen_effect",
-				.name	= "Screen Effect",
-				.desc	= "Grid simulates an LCD grid.\nLine simulates CRT scanlines.\nEffects usually look best at native scaling.",
+				.name	= "Efecto",
+				.desc	= "Rejilla imita una pantalla LCD.\nLíneas imita un televisor CRT.\nSe ven mejor con escalado Nativo.",
 				.default_value = 0,
 				.value = 0,
 				.count = 3,
-				.values = effect_labels,
+				.values = effect_values,
 				.labels = effect_labels,
 			},
 			[FE_OPT_SHARPNESS] = {
 				.key	= "minarch_screen_sharpness",
-				.name	= "Screen Sharpness",
-				.desc	= "Sharp uses nearest neighbor sampling.\nCrisp integer upscales before linear sampling.\nSoft uses linear sampling.",
+				.name	= "Nitidez",
+				.desc	= "Nítido: píxeles marcados.\nFino: escala y luego suaviza.\nSuave: imagen suavizada.",
 				.default_value = 2,
 				.value = 2,
 				.count = 3,
-				.values = sharpness_labels,
+				.values = sharpness_values,
 				.labels = sharpness_labels,
 			},
 			[FE_OPT_TEARING] = {
 				.key	= "minarch_prevent_tearing",
-				.name	= "Prevent Tearing",
-				.desc	= "Wait for vsync before drawing the next frame.\nLenient only waits when within frame budget.\nStrict always waits.",
+				.name	= "Sincronía",
+				.desc	= "Espera a la pantalla antes de dibujar.\nFlexible: solo si hay tiempo.\nEstricto: siempre espera.",
 				.default_value = VSYNC_LENIENT,
 				.value = VSYNC_LENIENT,
 				.count = 3,
-				.values = tearing_labels,
+				.values = tearing_values,
 				.labels = tearing_labels,
 			},
 			[FE_OPT_OVERCLOCK] = {
 				.key	= "minarch_cpu_speed",
-				.name	= "CPU Speed",
-				.desc	= "Over- or underclock the CPU to prioritize\npure performance or power savings.",
+				.name	= "Velocidad CPU",
+				.desc	= "Sube o baja la CPU para priorizar\npotencia o ahorro de batería.",
 				.default_value = 1,
 				.value = 1,
 				.count = 3,
-				.values = overclock_labels,
+				.values = overclock_values,
 				.labels = overclock_labels,
 			},
 			[FE_OPT_THREAD] = {
 				.key	= "minarch_thread_video",
-				.name	= "Prioritize Audio",
-				.desc	= "Can eliminate crackle but\nmay cause dropped frames.\nOnly turn on if necessary.",
+				.name	= "Priorizar audio",
+				.desc	= "Quita chasquidos de sonido\npero puede saltar imagen.\nActívalo solo si hace falta.",
 				.default_value = 0,
 				.value = 0,
 				.count = 2,
-				.values = onoff_labels,
+				.values = onoff_values,
 				.labels = onoff_labels,
 			},
 			[FE_OPT_DEBUG] = {
 				.key	= "minarch_debug_hud",
-				.name	= "Debug HUD",
-				.desc	= "Show frames per second, cpu load,\nresolution, and scaler information.",
+				.name	= "Info técnica",
+				.desc	= "Muestra FPS, uso de CPU,\nresolución y escalado.",
 				.default_value = 0,
 				.value = 0,
 				.count = 2,
-				.values = onoff_labels,
+				.values = onoff_values,
 				.labels = onoff_labels,
 			},
 			[FE_OPT_MAXFF] = {
 				.key	= "minarch_max_ff_speed",
-				.name	= "Max FF Speed",
-				.desc	= "Fast forward will not exceed the\nselected speed (but may be less\ndepending on game and emulator).",
+				.name	= "Avance máx.",
+				.desc	= "El avance rápido no pasará de\nesta velocidad (puede ser menor\nsegún el juego y el emulador).",
 				.default_value = 3, // 4x
 				.value = 3, // 4x
 				.count = 8,
-				.values = max_ff_labels,
+				.values = max_ff_values,
 				.labels = max_ff_labels,
 			},
 			[FE_OPT_COUNT] = {NULL}
@@ -929,14 +938,14 @@ static struct Config {
 	},
 	.controls = default_button_mapping,
 	.shortcuts = (ButtonMapping[]){
-		[SHORTCUT_SAVE_STATE]			= {"Save State",		-1, BTN_ID_NONE, 0},
-		[SHORTCUT_LOAD_STATE]			= {"Load State",		-1, BTN_ID_NONE, 0},
-		[SHORTCUT_RESET_GAME]			= {"Reset Game",		-1, BTN_ID_NONE, 0},
-		[SHORTCUT_SAVE_QUIT]			= {"Save & Quit",		-1, BTN_ID_NONE, 0},
-		[SHORTCUT_CYCLE_SCALE]			= {"Cycle Scaling",		-1, BTN_ID_NONE, 0},
-		[SHORTCUT_CYCLE_EFFECT]			= {"Cycle Effect",		-1, BTN_ID_NONE, 0},
-		[SHORTCUT_TOGGLE_FF]			= {"Toggle FF",			-1, BTN_ID_NONE, 0},
-		[SHORTCUT_HOLD_FF]				= {"Hold FF",			-1, BTN_ID_NONE, 0},
+		[SHORTCUT_SAVE_STATE]			= {"Guardar partida",		-1, BTN_ID_NONE, 0},
+		[SHORTCUT_LOAD_STATE]			= {"Cargar partida",		-1, BTN_ID_NONE, 0},
+		[SHORTCUT_RESET_GAME]			= {"Reiniciar juego",		-1, BTN_ID_NONE, 0},
+		[SHORTCUT_SAVE_QUIT]			= {"Guardar y salir",		-1, BTN_ID_NONE, 0},
+		[SHORTCUT_CYCLE_SCALE]			= {"Cambiar escalado",		-1, BTN_ID_NONE, 0},
+		[SHORTCUT_CYCLE_EFFECT]			= {"Cambiar efecto",		-1, BTN_ID_NONE, 0},
+		[SHORTCUT_TOGGLE_FF]			= {"Avance rápido",			-1, BTN_ID_NONE, 0},
+		[SHORTCUT_HOLD_FF]				= {"Mantener avance",			-1, BTN_ID_NONE, 0},
 		{NULL}
 	},
 };
@@ -3050,11 +3059,11 @@ static struct {
 	.preview_exists = 0,
 	
 	.items = {
-		[ITEM_CONT] = "Continue",
-		[ITEM_SAVE] = "Save",
-		[ITEM_LOAD] = "Load",
-		[ITEM_OPTS] = "Options",
-		[ITEM_QUIT] = "Quit",
+		[ITEM_CONT] = "Continuar",
+		[ITEM_SAVE] = "Guardar",
+		[ITEM_LOAD] = "Cargar",
+		[ITEM_OPTS] = "Opciones",
+		[ITEM_QUIT] = "Salir",
 	}
 };
 
@@ -3070,7 +3079,7 @@ void Menu_init(void) {
 
 	sprintf(menu.slot_path, "%s/%s.txt", menu.minui_dir, game.name);
 	
-	if (simple_mode) menu.items[ITEM_OPTS] = "Reset";
+	if (simple_mode) menu.items[ITEM_OPTS] = "Reiniciar";
 	
 	if (game.m3u_path[0]) {
 		char* tmp;
@@ -3258,7 +3267,7 @@ static int OptionEmulator_optionChanged(MenuList* list, int i) {
 static int OptionEmulator_optionDetail(MenuList* list, int i) {
 	MenuItem* item = &list->items[i];
 	Option* option = OptionList_getOption(&config.core, item->key);
-	if (option->full) return Menu_message(option->full, (char*[]){ "B","BACK", NULL });
+	if (option->full) return Menu_message(option->full, (char*[]){ "B","ATRÁS", NULL });
 	else return MENU_CALLBACK_NOP;
 }
 static MenuList OptionEmulator_menu = {
@@ -3310,7 +3319,7 @@ static int OptionEmulator_openMenu(MenuList* list, int i) {
 		Menu_options(&OptionEmulator_menu);
 	}
 	else {
-		Menu_message("This core has no options.", (char*[]){ "B","BACK", NULL });
+		Menu_message("Este emulador no tiene opciones.", (char*[]){ "B","ATRÁS", NULL });
 	}
 	
 	return MENU_CALLBACK_NOP;
@@ -3391,8 +3400,8 @@ static int OptionControls_openMenu(MenuList* list, int i) {
 		
 		if (has_custom_controllers) {
 			MenuItem* item = &OptionControls_menu.items[k++];
-			item->name = "Controller";
-			item->desc = "Select the type of controller.";
+			item->name = "Mando";
+			item->desc = "Elige el tipo de mando.";
 			item->value = gamepad_type;
 			item->values = gamepad_labels;
 			item->on_change = OptionControls_optionChanged;
@@ -3482,9 +3491,9 @@ static MenuList OptionShortcuts_menu = {
 };
 static char* getSaveDesc(void) {
 	switch (config.loaded) {
-		case CONFIG_NONE:		return "Using defaults."; break;
-		case CONFIG_CONSOLE:	return "Using console config."; break;
-		case CONFIG_GAME:		return "Using game config."; break;
+		case CONFIG_NONE:		return "Valores por defecto."; break;
+		case CONFIG_CONSOLE:	return "Config. de consola."; break;
+		case CONFIG_GAME:		return "Config. del juego."; break;
 	}
 	return NULL;
 }
@@ -3522,22 +3531,22 @@ static int OptionSaveChanges_onConfirm(MenuList* list, int i) {
 	switch (i) {
 		case 0: {
 			Config_write(CONFIG_WRITE_ALL);
-			message = "Saved for console.";
+			message = "Guardado para consola.";
 			break;
 		}
 		case 1: {
 			Config_write(CONFIG_WRITE_GAME);
-			message = "Saved for game.";
+			message = "Guardado para juego.";
 			break;
 		}
 		default: {
 			Config_restore();
-			if (config.loaded) message = "Restored console defaults.";
-			else message = "Restored defaults.";
+			if (config.loaded) message = "Valores restaurados.";
+			else message = "Valores restaurados.";
 			break;
 		}
 	}
-	Menu_message(message, (char*[]){ "A","OKAY", NULL });
+	Menu_message(message, (char*[]){ "A","ACEPTAR", NULL });
 	OptionSaveChanges_updateDesc();
 	return MENU_CALLBACK_EXIT;
 }
@@ -3545,9 +3554,9 @@ static MenuList OptionSaveChanges_menu = {
 	.type = MENU_LIST,
 	.on_confirm = OptionSaveChanges_onConfirm,
 	.items = (MenuItem[]){
-		{"Save for console"},
-		{"Save for game"},
-		{"Restore defaults"},
+		{"Guardar para consola"},
+		{"Guardar para juego"},
+		{"Restaurar valores"},
 		{NULL},
 	}
 };
@@ -3566,11 +3575,11 @@ static int OptionQuicksave_onConfirm(MenuList* list, int i) {
 static MenuList options_menu = {
 	.type = MENU_LIST,
 	.items = (MenuItem[]) {
-		{"Frontend", "MinUI (" BUILD_DATE " " BUILD_HASH ")",.on_confirm=OptionFrontend_openMenu},
-		{"Emulator",.on_confirm=OptionEmulator_openMenu},
-		{"Controls",.on_confirm=OptionControls_openMenu},
-		{"Shortcuts",.on_confirm=OptionShortcuts_openMenu}, 
-		{"Save Changes",.on_confirm=OptionSaveChanges_openMenu},
+		{"Interfaz", "MinUI (" BUILD_DATE " " BUILD_HASH ")",.on_confirm=OptionFrontend_openMenu},
+		{"Emulador",.on_confirm=OptionEmulator_openMenu},
+		{"Controles",.on_confirm=OptionControls_openMenu},
+		{"Atajos",.on_confirm=OptionShortcuts_openMenu}, 
+		{"Guardar cambios",.on_confirm=OptionSaveChanges_openMenu},
 		{NULL},
 		{NULL},
 		{NULL},
@@ -4266,7 +4275,7 @@ static void Menu_loop(void) {
 	char disc_name[16];
 	if (menu.total_discs) {
 		rom_disc = menu.disc;
-		sprintf(disc_name, "Disc %i", menu.disc+1);
+		sprintf(disc_name, "Disco %i", menu.disc+1);
 	}
 		
 	int selected = 0; // resets every launch
@@ -4301,7 +4310,7 @@ static void Menu_loop(void) {
 				menu.disc -= 1;
 				if (menu.disc<0) menu.disc += menu.total_discs;
 				dirty = 1;
-				sprintf(disc_name, "Disc %i", menu.disc+1);
+				sprintf(disc_name, "Disco %i", menu.disc+1);
 			}
 			else if (selected==ITEM_SAVE || selected==ITEM_LOAD) {
 				menu.slot -= 1;
@@ -4314,7 +4323,7 @@ static void Menu_loop(void) {
 				menu.disc += 1;
 				if (menu.disc==menu.total_discs) menu.disc -= menu.total_discs;
 				dirty = 1;
-				sprintf(disc_name, "Disc %i", menu.disc+1);
+				sprintf(disc_name, "Disco %i", menu.disc+1);
 			}
 			else if (selected==ITEM_SAVE || selected==ITEM_LOAD) {
 				menu.slot += 1;
@@ -4426,8 +4435,8 @@ static void Menu_loop(void) {
 			SDL_FreeSurface(text);
 			
 			if (show_setting && !GetHDMI()) GFX_blitHardwareHints(screen, show_setting);
-			else GFX_blitButtonGroup((char*[]){ BTN_SLEEP==BTN_POWER?"POWER":"MENU","SLEEP", NULL }, 0, screen, 0);
-			GFX_blitButtonGroup((char*[]){ "B","BACK", "A","OKAY", NULL }, 1, screen, 1);
+			else GFX_blitButtonGroup((char*[]){ BTN_SLEEP==BTN_POWER?"APAGAR":"MENÚ","REPOSO", NULL }, 0, screen, 0);
+			GFX_blitButtonGroup((char*[]){ "B","ATRÁS", "A","ACEPTAR", NULL }, 1, screen, 1);
 			
 			// list
 			oy = (((DEVICE_HEIGHT / FIXED_SCALE) - PADDING * 2) - (MENU_ITEM_COUNT * PILL_SIZE)) / 2;
@@ -4516,8 +4525,8 @@ static void Menu_loop(void) {
 				else {
 					SDL_Rect preview_rect = {ox,oy,hw,hh};
 					SDL_FillRect(screen, &preview_rect, 0);
-					if (menu.save_exists) GFX_blitMessage(font.large, "No Preview", screen, &preview_rect);
-					else GFX_blitMessage(font.large, "Empty Slot", screen, &preview_rect);
+					if (menu.save_exists) GFX_blitMessage(font.large, "Sin vista previa", screen, &preview_rect);
+					else GFX_blitMessage(font.large, "Vacío", screen, &preview_rect);
 				}
 				
 				// pagination

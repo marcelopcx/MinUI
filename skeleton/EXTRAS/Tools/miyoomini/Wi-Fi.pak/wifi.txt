@@ -1,0 +1,7 @@
+# Redes Wi-Fi: escribe el nombre de la red y debajo su clave.
+# Puedes poner varias redes; la consola se conecta a la que encuentre.
+# La Miyoo Mini+ solo funciona con redes de 2,4 GHz.
+# Las lineas que empiezan con # se ignoran.
+
+NOMBRE_DE_TU_RED
+CLAVE_DE_TU_RED

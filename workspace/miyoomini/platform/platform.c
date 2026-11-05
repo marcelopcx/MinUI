@@ -477,15 +477,12 @@ static int online = 0;
 void PLAT_getBatteryStatus(int* is_charging, int* charge) {
 	*is_charging = is_plus ? (axp_read(0x00) & 0x4) > 0 : getInt("/sys/devices/gpiochip0/gpio/gpio59/value");
 	
-	int i = getInt("/tmp/battery"); // 0-100?
+	int i = getInt("/tmp/battery"); // 0-100
 
-	// worry less about battery and more about the game you're playing
-	     if (i>80) *charge = 100;
-	else if (i>60) *charge =  80;
-	else if (i>40) *charge =  60;
-	else if (i>20) *charge =  40;
-	else if (i>10) *charge =  20;
-	else           *charge =  10;
+	// porcentaje real (sin redondear a 5 niveles) para mostrarlo en la barra
+	if (i>100) i = 100;
+	if (i<1) i = 1;
+	*charge = i;
 
 	// TODO: tmp
 	// *is_charging = 0;

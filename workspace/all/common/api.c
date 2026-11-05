@@ -752,6 +752,13 @@ int GFX_blitHardwareGroup(SDL_Surface* dst, int show_setting) {
 		ow = SCALE1(PILL_SIZE);
 		if (show_wifi) ow += ww;
 
+		// porcentaje de batería a la izquierda del icono
+		char battery_text[8];
+		sprintf(battery_text, "%i%%", pwr.charge);
+		SDL_Surface* battery_txt = TTF_RenderUTF8_Blended(font.tiny, battery_text, COLOR_WHITE);
+		int bw = battery_txt ? battery_txt->w + SCALE1(6) : 0;
+		ow += bw;
+
 		ox = dst->w - SCALE1(PADDING) - ow;
 		oy = SCALE1(PADDING);
 		GFX_blitPill(gfx.mode==MODE_MAIN ? ASSET_DARK_GRAY_PILL : ASSET_BLACK_PILL, dst, &(SDL_Rect){
@@ -770,6 +777,14 @@ int GFX_blitHardwareGroup(SDL_Surface* dst, int show_setting) {
 			GFX_blitAsset(ASSET_WIFI, NULL, dst, &(SDL_Rect){x,y});
 			ox += ww;
 		}
+		if (battery_txt) {
+			SDL_BlitSurface(battery_txt, NULL, dst, &(SDL_Rect){
+				ox + SCALE1(6),
+				oy + (SCALE1(PILL_SIZE) - battery_txt->h) / 2
+			});
+			SDL_FreeSurface(battery_txt);
+			ox += bw;
+		}
 		GFX_blitBattery(dst, &(SDL_Rect){ox,oy});
 	}
 	
@@ -777,12 +792,12 @@ int GFX_blitHardwareGroup(SDL_Surface* dst, int show_setting) {
 }
 void GFX_blitHardwareHints(SDL_Surface* dst, int show_setting) {
 	if (BTN_MOD_VOLUME==BTN_SELECT && BTN_MOD_BRIGHTNESS==BTN_START) {
-		if (show_setting==1) GFX_blitButtonGroup((char*[]){ "SELECT","VOLUME",  NULL }, 0, dst, 0);
-		else GFX_blitButtonGroup((char*[]){ "START","BRIGHTNESS",  NULL }, 0, dst, 0);
+		if (show_setting==1) GFX_blitButtonGroup((char*[]){ "SELECT","VOLUMEN",  NULL }, 0, dst, 0);
+		else GFX_blitButtonGroup((char*[]){ "START","BRILLO",  NULL }, 0, dst, 0);
 	}
 	else {
-		if (show_setting==1) GFX_blitButtonGroup((char*[]){ BRIGHTNESS_BUTTON_LABEL,"BRIGHTNESS",  NULL }, 0, dst, 0);
-		else GFX_blitButtonGroup((char*[]){ "MENU","BRIGHTNESS",  NULL }, 0, dst, 0);
+		if (show_setting==1) GFX_blitButtonGroup((char*[]){ BRIGHTNESS_BUTTON_LABEL,"BRILLO",  NULL }, 0, dst, 0);
+		else GFX_blitButtonGroup((char*[]){ "MENÚ","BRILLO",  NULL }, 0, dst, 0);
 	}
 	
 }
@@ -1627,7 +1642,7 @@ void PWR_powerOff(void) {
 		gfx.screen = GFX_resize(w,h,p);
 		
 		char* msg;
-		if (HAS_POWER_BUTTON || HAS_POWEROFF_BUTTON) msg = exists(AUTO_RESUME_PATH) ? "Quicksave created,\npowering off" : "Powering off";
+		if (HAS_POWER_BUTTON || HAS_POWEROFF_BUTTON) msg = exists(AUTO_RESUME_PATH) ? "Partida guardada,\napagando" : "Apagando";
 		else msg = exists(AUTO_RESUME_PATH) ? "Quicksave created,\npower off now" : "Power off now";
 		
 		// LOG_info("PWR_powerOff %s (%ix%i)\n", gfx.screen, gfx.screen->w, gfx.screen->h);
