@@ -71,9 +71,21 @@ intentar() {
 	./wpa_cli -i wlan0 scan >/dev/null
 	sleep 6
 	paso "redes visibles (MHz: 24xx = 2,4 GHz, 5xxx = 5 GHz)"
-	./wpa_cli -i wlan0 scan_results
+	./wpa_cli -i wlan0 scan_results > /tmp/wifi_scan.txt
+	cat /tmp/wifi_scan.txt
+	# si en el primer escaneo no aparece ninguna red conocida, no tiene sentido insistir
+	if [ $INTENTO -eq 1 ] && [ $(wc -l < /tmp/wifi_scan.txt) -gt 1 ]; then
+		CERCA=0
+		echo "$REDES" | awk 'NR % 2 == 1' > /tmp/wifi_redes.txt
+		while IFS= read -r red; do
+			# nombres con tildes salen escapados en el escaneo: no se pueden comparar, se asume que están
+			echo "$red" | awk '{ exit !/[\200-\377]/ }' && CERCA=1
+			awk -F'\t' -v r="$red" '$5 == r { f = 1 } END { exit !f }' /tmp/wifi_scan.txt && CERCA=1
+		done < /tmp/wifi_redes.txt
+		if [ $CERCA -eq 0 ]; then SIN_REDES=1; return 0; fi
+	fi
 	udhcpc -i wlan0 -s /etc/init.d/udhcpc.script >/dev/null 2>&1 &
-	for i in $(seq 1 30); do
+	for i in $(seq 1 20); do
 		IP=$(get_ip)
 		[ -n "$IP" ] && return 0
 		sleep 1
@@ -91,6 +103,13 @@ IP=""
 	intentar ./wpa_supplicant wext
 paso "mensajes del driver"; dmesg | grep -iE "8188|wlan0|rtl" | tail -15
 
+if [ -n "$SIN_REDES" ]; then
+	paso "ninguna red conocida a la vista"
+	wifi_off
+	say.elf "No hay redes conocidas cerca"
+	exit 0
+fi
+
 if [ -z "$IP" ]; then
 	ESTADO=$(./wpa_cli -i wlan0 status 2>/dev/null | sed -n 's/^wpa_state=//p')
 	wifi_off
@@ -104,6 +123,22 @@ fi
 
 paso "conectado: $IP"
 ./filebrowser -p 80 -a 0.0.0.0 -r /mnt/SDCARD -d "$DIR/filebrowser.db" --noauth >/dev/null 2>&1 &
+
+# vigilante: si se pierde la conexión 3 minutos seguidos (por ejemplo al salir
+# de casa), apaga el Wi-Fi para no gastar batería buscando la red
+(
+	FALLOS=0
+	while pidof wpa_supplicant >/dev/null 2>&1; do
+		sleep 60
+		E=$(./wpa_cli -i wlan0 status 2>/dev/null | sed -n 's/^wpa_state=//p')
+		if [ "$E" = "COMPLETED" ]; then FALLOS=0; else FALLOS=$((FALLOS + 1)); fi
+		if [ $FALLOS -ge 3 ]; then
+			echo "== $(date +%H:%M:%S) sin conexion 3 min: Wi-Fi apagado" >> "$LOG"
+			wifi_off
+			break
+		fi
+	done
+) >/dev/null 2>&1 &
 sleep 1
 say.elf "Wi-Fi OK - abre http://$IP"
 } > "$LOG" 2>&1
