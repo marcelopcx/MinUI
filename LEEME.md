@@ -19,12 +19,17 @@ adaptado para una Miyoo Mini Plus.
 
 **Herramientas (Miyoo Mini)**
 - Solo quedan **Wi-Fi**, **Archivos** y **Fecha y hora** (ver el paso `package` del `makefile`).
-- **Wi-Fi.pak**: conecta a las redes de `wifi.txt` (varias, nombre y clave en líneas
-  seguidas; solo 2,4 GHz) y abre un explorador de archivos web (filebrowser) en
-  `http://<ip-de-la-consola>`. Usa primero el `wpa_supplicant` del firmware, que es el que
-  conecta en la Mini Plus. Escribe un registro en `.userdata/miyoomini/logs/Wi-Fi.txt`.
-  Binarios incluidos: driver `8188fu.ko`, `wpa_supplicant`/`wpa_cli`/`libnl-tiny.so`
-  (de Onion OS) y `filebrowser` v2.5.4.
+- **Wi-Fi** (submenú de Herramientas): *Encender o apagar*, *IP de la consola* y
+  *Sincronizar con servidor*. Conecta a las redes de `Wi-Fi/.wifi/wifi.txt` (varias, nombre
+  y clave en líneas seguidas; solo 2,4 GHz) y abre un explorador de archivos web
+  (filebrowser) en `http://<ip-de-la-consola>`. Usa primero el `wpa_supplicant` del
+  firmware, que es el que conecta en la Mini Plus; se apaga solo tras 3 min sin conexión.
+  Registros en `.userdata/miyoomini/logs/` (`Wi-Fi.txt`, `wpa-N.txt`, `Sincronizar.txt`).
+  Binarios incluidos: driver `8188fu.ko`, `wpa_supplicant`/`wpa_cli`/`libnl-tiny.so` y
+  `wget` (de Onion OS) y `filebrowser` v2.5.4.
+- **Sincronizar con servidor**: llama al servicio `servidor/miyoo-sync` (Docker), que descarga
+  a la consola los juegos de la colección "Miyoo" de RomM y sincroniza partidas (`.sav`) y
+  estados (`.st0`–`.st9`) en ambos sentidos. Dirección del servicio en `Wi-Fi/.wifi/servidor.txt`.
 
 **Arcade (Miyoo Mini)**
 - Paks `CPS1`, `CPS2`, `CPS3`, `NEOGEO`, `FBN` y `MAME` en `skeleton/EXTRAS/Emus/miyoomini`.
