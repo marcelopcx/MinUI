@@ -68,21 +68,25 @@ intentar() {
 	paso "probando $1 con driver $2"
 	$1 -B -D $2 -iwlan0 -c $CONF || return 1
 	sleep 3
-	./wpa_cli -i wlan0 scan >/dev/null
-	sleep 6
-	paso "redes visibles (MHz: 24xx = 2,4 GHz, 5xxx = 5 GHz)"
-	./wpa_cli -i wlan0 scan_results > /tmp/wifi_scan.txt
-	cat /tmp/wifi_scan.txt
-	# si en el primer escaneo no aparece ninguna red conocida, no tiene sentido insistir
-	if [ $INTENTO -eq 1 ] && [ $(wc -l < /tmp/wifi_scan.txt) -gt 1 ]; then
-		CERCA=0
-		echo "$REDES" | awk 'NR % 2 == 1' > /tmp/wifi_redes.txt
+	echo "$REDES" | awk 'NR % 2 == 1' > /tmp/wifi_redes.txt
+	# hasta 3 escaneos: el chip no siempre recorre todos los canales en el primero
+	CERCA=0
+	for e in 1 2 3; do
+		./wpa_cli -i wlan0 scan >/dev/null
+		sleep 5
+		./wpa_cli -i wlan0 scan_results > /tmp/wifi_scan.txt
 		while IFS= read -r red; do
 			# nombres con tildes salen escapados en el escaneo: no se pueden comparar, se asume que están
 			echo "$red" | awk '{ exit !/[\200-\377]/ }' && CERCA=1
 			awk -F'\t' -v r="$red" '$5 == r { f = 1 } END { exit !f }' /tmp/wifi_scan.txt && CERCA=1
 		done < /tmp/wifi_redes.txt
-		if [ $CERCA -eq 0 ]; then SIN_REDES=1; return 0; fi
+		[ $CERCA -eq 1 ] && break
+	done
+	paso "redes visibles tras $e escaneo(s) (MHz: 24xx = 2,4 GHz, 5xxx = 5 GHz)"
+	cat /tmp/wifi_scan.txt
+	# si tras 3 escaneos no aparece ninguna red conocida, no tiene sentido insistir
+	if [ $INTENTO -eq 1 ] && [ $CERCA -eq 0 ] && [ $(wc -l < /tmp/wifi_scan.txt) -gt 1 ]; then
+		SIN_REDES=1; return 0
 	fi
 	udhcpc -i wlan0 -s /etc/init.d/udhcpc.script >/dev/null 2>&1 &
 	for i in $(seq 1 20); do
