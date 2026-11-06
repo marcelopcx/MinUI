@@ -66,7 +66,10 @@ intentar() {
 	killall -9 wpa_supplicant udhcpc >/dev/null 2>&1
 	rm -f /var/run/wpa_supplicant/wlan0
 	paso "probando $1 con driver $2"
-	$1 -B -D $2 -iwlan0 -c $CONF || return 1
+	# en primer plano y en segundo término, para guardar su registro detallado
+	$1 -D $2 -iwlan0 -c $CONF -d > "$LOGS_PATH/wpa-$INTENTO.txt" 2>&1 &
+	sleep 1
+	pidof wpa_supplicant >/dev/null || return 1
 	sleep 3
 	echo "$REDES" | awk 'NR % 2 == 1' > /tmp/wifi_redes.txt
 	# hasta 3 escaneos: el chip no siempre recorre todos los canales en el primero
@@ -94,7 +97,9 @@ intentar() {
 		[ -n "$IP" ] && return 0
 		sleep 1
 	done
-	paso "estado"; ./wpa_cli -i wlan0 status
+	paso "estado"; ./wpa_cli -i wlan0 status; ./wpa_cli -i wlan0 list_networks
+	paso "motivo (de wpa-$INTENTO.txt)"
+	grep -E "CTRL-EVENT|reason|WRONG_KEY|TEMP-DISABLED|Authentication|Association|4-Way|PMK|deauth|blacklist|skip" "$LOGS_PATH/wpa-$INTENTO.txt" | tail -25
 	return 1
 }
 
@@ -144,5 +149,24 @@ paso "conectado: $IP"
 	done
 ) >/dev/null 2>&1 &
 sleep 1
-say.elf "Wi-Fi OK - abre http://$IP"
+
+# sincronizar partidas y juegos con el servidor (miyoo-sync + RomM), si está a la vista
+SRV=$(grep -v '^#' "$DIR/servidor.txt" 2>/dev/null | tr -d '\r' | awk 'NF' | head -1)
+RES=""
+if [ -n "$SRV" ]; then
+	WGET=$(command -v wget || echo ./wget)
+	if $WGET -q -T 5 -O /tmp/sync.txt "http://$SRV/sync?ip=$IP"; then
+		show.elf "$DIR/sincronizando.png"
+		for i in $(seq 1 180); do
+			sleep 5
+			$WGET -q -T 5 -O /tmp/sync.txt "http://$SRV/estado" || continue
+			head -1 /tmp/sync.txt | grep -q LISTO && break
+		done
+		RES=$(sed -n 2p /tmp/sync.txt)
+		paso "sincronización: $RES"
+	else
+		paso "servidor $SRV no accesible: sin sincronizar"
+	fi
+fi
+say.elf "Wi-Fi OK - http://$IP${RES:+  -  $RES}"
 } > "$LOG" 2>&1

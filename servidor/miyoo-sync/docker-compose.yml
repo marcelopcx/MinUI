@@ -1,0 +1,17 @@
+services:
+  miyoo-sync:
+    image: python:3.12-slim
+    container_name: miyoo-sync
+    restart: unless-stopped
+    network_mode: host          # llega a RomM (localhost:8082) y a la consola en la LAN
+    env_file: .env
+    environment:
+      - ROMM_URL=http://localhost:8082
+      - PORT=8043
+      - COLECCION=Miyoo
+      - DATA_DIR=/data
+      - TZ=America/Caracas
+    volumes:
+      - ./app:/app:ro
+      - ./data:/data
+    command: ["python", "-u", "/app/sync.py"]

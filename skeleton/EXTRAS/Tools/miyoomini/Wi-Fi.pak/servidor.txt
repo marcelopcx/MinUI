@@ -1,0 +1,2 @@
+# Servidor de sincronización (miyoo-sync con RomM): dirección:puerto
+# Ejemplo: 192.168.0.10:8043. Vacío = no sincronizar.
