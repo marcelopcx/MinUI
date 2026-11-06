@@ -1,6 +1,7 @@
 #!/bin/sh
 # Funciones comunes del menú Wi-Fi (Miyoo Mini Plus). Lo cargan los tres paks:
-#   Encender o apagar, IP de la consola, Sincronizar con servidor.
+#   Encender/Apagar (el nombre cambia según el estado), IP de la consola y
+#   Sincronizar con RomM.
 # Redes en wifi.txt (nombre en una línea, clave en la siguiente; solo 2,4 GHz).
 # Servidor de sincronización (miyoo-sync + RomM) en servidor.txt.
 
@@ -10,7 +11,37 @@ export LD_LIBRARY_PATH="$WIFI_DIR:$LD_LIBRARY_PATH"
 CONF=/appconfigs/wpa_supplicant.conf
 WGET=$(command -v wget || echo "$WIFI_DIR/wget")
 
+MENU_DIR=$(dirname "$WIFI_DIR")
+
 paso() { echo "== $(date +%H:%M:%S) $*"; }
+
+# el botón de encendido se llama "Encender" con el Wi-Fi apagado y "Apagar" con él encendido
+nombre_boton() {
+	for n in Encender Apagar; do
+		[ "$n" != "$1" ] && [ -d "$MENU_DIR/$n.pak" ] && mv "$MENU_DIR/$n.pak" "$MENU_DIR/$1.pak"
+	done
+	sync
+}
+
+# texto animado ("Conectando", "Sincronizando") con los tres puntos moviéndose
+animar() {
+	touch /tmp/wifi-animando
+	(
+		while [ -f /tmp/wifi-animando ]; do
+			for n in 1 2 3; do
+				[ -f /tmp/wifi-animando ] || break
+				show.elf "$WIFI_DIR/$1-$n.png"
+				sleep 0.4
+			done
+		done
+	) &
+	ANIM_PID=$!
+}
+parar_animacion() {
+	rm -f /tmp/wifi-animando
+	[ -n "$ANIM_PID" ] && wait $ANIM_PID 2>/dev/null
+	ANIM_PID=""
+}
 
 get_ip() {
 	ip -4 addr show dev wlan0 2>/dev/null | awk '/inet / {print $2}' | cut -d/ -f1
@@ -24,13 +55,13 @@ apagar() {
 	killall -9 filebrowser wpa_supplicant udhcpc >/dev/null 2>&1
 	ifconfig wlan0 down >/dev/null 2>&1
 	/customer/app/axp_test wifioff >/dev/null 2>&1
+	nombre_boton Encender
 }
 
 # intenta conectar: $1 = programa wpa_supplicant, $2 = driver (nl80211 o wext)
 INTENTO=0
 intentar() {
 	INTENTO=$((INTENTO + 1))
-	show.elf "$WIFI_DIR/wifi-$INTENTO.png"
 	killall -9 wpa_supplicant udhcpc >/dev/null 2>&1
 	rm -f /var/run/wpa_supplicant/wlan0
 	paso "probando $1 con driver $2"
@@ -90,7 +121,7 @@ encender() {
 	sync
 	paso "redes configuradas:"; grep 'ssid="' $CONF
 
-	show.elf "$WIFI_DIR/wifi-0.png"
+	animar conectando
 	paso "cargando driver"
 	lsmod | grep -q 8188fu || insmod ./8188fu.ko
 	/customer/app/axp_test wifion
@@ -100,6 +131,7 @@ encender() {
 
 	SYS_WPA=$(command -v wpa_supplicant)
 	IP=""; SIN_REDES=""
+	rm -f "$LOGS_PATH"/wpa-*.txt
 	# primero el del firmware (es el que conecta en la Mini+); los otros, de respaldo
 	{ [ -n "$SYS_WPA" ] && intentar "$SYS_WPA" nl80211; } ||
 		intentar ./wpa_supplicant nl80211 ||
@@ -107,16 +139,20 @@ encender() {
 	paso "mensajes del driver"; dmesg | grep -iE "8188|wlan0|rtl" | tail -15
 
 	if [ -n "$SIN_REDES" ]; then
-		apagar; say.elf "No hay redes conocidas cerca"; return 1
+		apagar; parar_animacion; say.elf "No hay redes conocidas cerca"; return 1
 	fi
 	if [ -z "$IP" ]; then
 		ESTADO=$(./wpa_cli -i wlan0 status 2>/dev/null | sed -n 's/^wpa_state=//p')
-		apagar
-		case "$ESTADO" in
-			COMPLETED) say.elf "Conectado pero sin IP. Reintenta" ;;
-			4WAY_HANDSHAKE|ASSOCIATED) say.elf "Clave incorrecta?" ;;
-			*) say.elf "No se pudo conectar. Revisa el router" ;;
-		esac
+		apagar; parar_animacion
+		if grep -q "ASSOC-REJECT" "$LOGS_PATH"/wpa-*.txt 2>/dev/null; then
+			say.elf "El router rechazó la conexión"
+		else
+			case "$ESTADO" in
+				COMPLETED) say.elf "Conectado pero sin IP" ;;
+				4WAY_HANDSHAKE|ASSOCIATED) say.elf "Contraseña incorrecta" ;;
+				*) say.elf "No se pudo conectar" ;;
+			esac
+		fi
 		return 1
 	fi
 
@@ -139,6 +175,8 @@ encender() {
 		done
 	) >/dev/null 2>&1 &
 	sleep 1
+	nombre_boton Apagar
+	parar_animacion
 	return 0
 }
 
@@ -149,11 +187,19 @@ sincronizar() {
 	if [ -z "$SRV" ]; then
 		RES="Sin servidor configurado (.wifi/servidor.txt)"; return 1
 	fi
-	if ! $WGET -q -T 5 -O /tmp/sync.txt "http://$SRV/sync?ip=$(get_ip)"; then
-		paso "servidor $SRV no accesible"
-		RES="Servidor no accesible"; return 1
+	animar sincronizando
+	# justo después de conectar el chip puede tardar en ver al servidor: ping y reintentos
+	OK=""
+	for t in 1 2 3 4 5 6; do
+		ping -c 1 -W 2 "${SRV%%:*}" >/dev/null 2>&1
+		$WGET -q -T 5 -O /tmp/sync.txt "http://$SRV/sync?ip=$(get_ip)" && { OK=1; break; }
+		paso "intento $t: servidor $SRV no responde"
+		sleep 2
+	done
+	if [ -z "$OK" ]; then
+		parar_animacion
+		RES="No se pudo contactar con RomM"; return 1
 	fi
-	show.elf "$WIFI_DIR/sincronizando.png"
 	for i in $(seq 1 180); do
 		sleep 5
 		$WGET -q -T 5 -O /tmp/sync.txt "http://$SRV/estado" || continue
@@ -161,5 +207,6 @@ sincronizar() {
 	done
 	RES=$(sed -n 2p /tmp/sync.txt)
 	paso "sincronización: $RES"
+	parar_animacion
 	return 0
 }

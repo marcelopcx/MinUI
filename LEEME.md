@@ -19,15 +19,18 @@ adaptado para una Miyoo Mini Plus.
 
 **Herramientas (Miyoo Mini)**
 - Solo quedan **Wi-Fi**, **Archivos**, **Fecha y hora** y **Batería** (ver el paso `package` del `makefile`).
-- **Wi-Fi** (submenú de Herramientas): *Encender o apagar*, *IP de la consola* y
-  *Sincronizar con servidor*. Conecta a las redes de `Wi-Fi/.wifi/wifi.txt` (varias, nombre
-  y clave en líneas seguidas; solo 2,4 GHz) y abre un explorador de archivos web
-  (filebrowser) en `http://<ip-de-la-consola>`. Usa primero el `wpa_supplicant` del
-  firmware, que es el que conecta en la Mini Plus; se apaga solo tras 3 min sin conexión.
+- **Wi-Fi** (submenú de Herramientas): *Encender* / *Apagar* (el nombre cambia según el
+  estado), *IP de la consola* y *Sincronizar con RomM*. Mientras conecta o sincroniza muestra
+  "Conectando…" / "Sincronizando…" con los puntos animados, y al final solo "Conectado" o el
+  error. Conecta a las redes de `Wi-Fi/.wifi/wifi.txt` (varias, nombre y clave en líneas
+  seguidas; solo 2,4 GHz) y abre un explorador de archivos web (filebrowser) en
+  `http://<ip-de-la-consola>`. Usa primero el `wpa_supplicant` del firmware, que es el que
+  conecta en la Mini Plus; se apaga solo tras 3 min sin conexión. Para que el botón vuelva a
+  "Encender" al arrancar, copia `Wi-Fi/.wifi/auto.sh` a `.userdata/miyoomini/auto.sh`.
   Registros en `.userdata/miyoomini/logs/` (`Wi-Fi.txt`, `wpa-N.txt`, `Sincronizar.txt`).
   Binarios incluidos: driver `8188fu.ko`, `wpa_supplicant`/`wpa_cli`/`libnl-tiny.so` y
   `wget` (de Onion OS) y `filebrowser` v2.5.4.
-- **Sincronizar con servidor**: llama al servicio `servidor/miyoo-sync` (Docker), que descarga
+- **Sincronizar con RomM**: llama al servicio `servidor/miyoo-sync` (Docker), que descarga
   a la consola los juegos de la colección "Miyoo" de RomM y sincroniza partidas (`.sav`) y
   estados (`.st0`–`.st9`) en ambos sentidos. Dirección del servicio en `Wi-Fi/.wifi/servidor.txt`.
 - **Batería**: muestra porcentaje, voltaje y si carga, y deja un medidor que anota cada minuto
