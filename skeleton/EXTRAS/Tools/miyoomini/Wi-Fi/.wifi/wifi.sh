@@ -108,7 +108,7 @@ encender() {
 	REDES=$(tr -d '\r' < wifi.txt 2>/dev/null | grep -v '^#' | grep -v '^[[:space:]]*$')
 	SSID=$(echo "$REDES" | sed -n 1p)
 	if [ -z "$SSID" ] || [ "$SSID" = "NOMBRE_DE_TU_RED" ]; then
-		say.elf "Edita Herramientas/miyoomini/Wi-Fi/.wifi/wifi.txt"
+		say.elf "Edita Herramientas/miyoomini/1) Wi-Fi/.wifi/wifi.txt"
 		return 1
 	fi
 	{

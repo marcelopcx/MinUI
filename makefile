@@ -165,7 +165,7 @@ package: tidy
 	mv ./build/EXTRAS/Tools ./build/EXTRAS/Herramientas
 ifneq (,$(findstring miyoomini, $(PLATFORMS)))
 	# Miyoo Mini: solo Wi-Fi, Archivos y Fecha y hora
-	cd "./build/EXTRAS/Herramientas/miyoomini" && rm -rf ADBD.pak Bootlogo.pak IP.pak "Remove Loading.pak" "Toggle 560p.pak" Input.pak && mv Files.pak Archivos.pak && mv Clock.pak "Fecha y hora.pak"
+	cd "./build/EXTRAS/Herramientas/miyoomini" && rm -rf ADBD.pak Bootlogo.pak IP.pak "Remove Loading.pak" "Toggle 560p.pak" Input.pak && mv Wi-Fi "1) Wi-Fi" && mv "Batería.pak" "2) Batería.pak" && mv Files.pak "3) Archivos.pak" && mv Clock.pak "4) Fecha y hora.pak"
 endif
 	cd ./build/EXTRAS && zip -r ../../releases/$(RELEASE_NAME)-extras.zip Bios Emus Roms Saves Herramientas README.txt
 	echo "$(RELEASE_NAME)" > ./build/latest.txt
