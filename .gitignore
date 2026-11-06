@@ -37,3 +37,6 @@ workspace/hash.txt
 workspace/readmes
 
 FAKESD
+# RetroAchievements: se descargan al compilar minarch
+workspace/all/minarch/rcheevos
+workspace/all/minarch/libchdr

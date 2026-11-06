@@ -1,9 +1,10 @@
 #!/bin/sh
-# Funciones comunes del menú Wi-Fi (Miyoo Mini Plus). Lo cargan los tres paks:
+# Funciones comunes del menú Wi-Fi (Miyoo Mini Plus). Lo cargan los paks del menú:
 #   Encender/Apagar (el nombre cambia según el estado), IP de la consola y
-#   Sincronizar con RomM.
+#   Sincronizar con RomM y Sincronizar logros.
 # Redes en wifi.txt (nombre en una línea, clave en la siguiente; solo 2,4 GHz).
 # Servidor de sincronización (miyoo-sync + RomM) en servidor.txt.
+# Logros de RetroAchievements: logros.sh (cuenta en .userdata/shared/.ra/cuenta.txt).
 
 WIFI_DIR=$(cd "$(dirname "$0")/../.wifi" && pwd)
 cd "$WIFI_DIR"
@@ -210,3 +211,5 @@ sincronizar() {
 	parar_animacion
 	return 0
 }
+
+. "$WIFI_DIR/logros.sh"

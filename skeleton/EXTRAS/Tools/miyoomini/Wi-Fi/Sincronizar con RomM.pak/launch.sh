@@ -1,5 +1,6 @@
 #!/bin/sh
 # Sincroniza partidas y juegos con RomM (servicio miyoo-sync del servidor).
+# Los logros van aparte, en "Sincronizar logros".
 # Si el Wi-Fi está apagado, primero lo enciende.
 . "$(dirname "$0")/../.wifi/wifi.sh"
 {

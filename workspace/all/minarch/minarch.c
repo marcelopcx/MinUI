@@ -18,6 +18,7 @@
 #include "api.h"
 #include "utils.h"
 #include "scaler.h"
+#include "logros.h"
 
 ///////////////////////////////////////
 
@@ -519,6 +520,7 @@ static void State_read(void) { // from picoarch
 		LOG_error("Error restoring save state: %s (%s)\n", filename, strerror(errno));
 		goto error;
 	}
+	Logros_stateLoaded(filename);
 
 error:
 	if (state) free(state);
@@ -557,6 +559,7 @@ static void State_write(void) { // from picoarch
 		LOG_error("Error writing state data to file: %s (%s)\n", filename, strerror(errno));
 		goto error;
 	}
+	Logros_stateSaved(filename);
 
 error:
 	if (state) free(state);
@@ -1718,7 +1721,7 @@ static void input_poll_callback(void) {
 				switch (i) {
 					case SHORTCUT_SAVE_STATE: Menu_saveState(); break;
 					case SHORTCUT_LOAD_STATE: Menu_loadState(); break;
-					case SHORTCUT_RESET_GAME: core.reset(); break;
+					case SHORTCUT_RESET_GAME: core.reset(); Logros_reset(); break;
 					case SHORTCUT_SAVE_QUIT:
 						Menu_saveState();
 						quit = 1;
@@ -2016,7 +2019,12 @@ static bool environment_callback(unsigned cmd, void *data) { // copied from pico
 		return false; // TODO: tmp
 		break;
 	}
-	// RETRO_ENVIRONMENT_SET_MEMORY_MAPS (36 | RETRO_ENVIRONMENT_EXPERIMENTAL)
+	case RETRO_ENVIRONMENT_SET_MEMORY_MAPS: { /* 36 | RETRO_ENVIRONMENT_EXPERIMENTAL */
+		// se guarda para los logros pero se responde como antes: pcsx_rearmed se
+		// cierra en el primer fotograma si el frontend acepta el mapa
+		Logros_setMemoryMap(data);
+		return false;
+	}
 	// RETRO_ENVIRONMENT_GET_LANGUAGE 39
 	case RETRO_ENVIRONMENT_GET_CURRENT_SOFTWARE_FRAMEBUFFER: { /* (40 | RETRO_ENVIRONMENT_EXPERIMENTAL) */
 		// puts("RETRO_ENVIRONMENT_GET_CURRENT_SOFTWARE_FRAMEBUFFER");
@@ -2850,6 +2858,7 @@ static void video_refresh_callback_main(const void *data, unsigned width, unsign
 	// LOG_info("video_refresh_callback: %ix%i@%i %ix%i@%i\n",width,height,pitch,screen->w,screen->h,screen->pitch);
 	
 	GFX_blitRenderer(&renderer);
+	if (Logros_draw(screen)) renderer.dst_p = 0; // limpia los bordes cuando se va el aviso
 	
 	if (!thread_video) GFX_flip(screen);
 	last_flip_time = SDL_GetTicks();
@@ -2882,11 +2891,25 @@ static void video_refresh_callback(const void *data, unsigned width, unsigned he
 
 // NOTE: sound must be disabled for fast forward to work...
 static void audio_sample_callback(int16_t left, int16_t right) {
-	if (!fast_forward) SND_batchSamples(&(const SND_Frame){left,right}, 1);
+	if (fast_forward) return;
+	SND_Frame frame = {left,right};
+	Logros_mezclar((int16_t*)&frame, 1);
+	SND_batchSamples(&frame, 1);
 }
 static size_t audio_sample_batch_callback(const int16_t *data, size_t frames) { 
-	if (!fast_forward) return SND_batchSamples((const SND_Frame*)data, frames);
-	else return frames;
+	if (fast_forward) return frames;
+	if (Logros_sonando()) { // sonido de logro mezclado con el del juego
+		static int16_t mezcla[1024 * 2];
+		for (size_t hecho=0; hecho<frames; ) {
+			size_t n = MIN(frames - hecho, 1024);
+			memcpy(mezcla, data + hecho * 2, n * sizeof(SND_Frame));
+			Logros_mezclar(mezcla, n);
+			SND_batchSamples((const SND_Frame*)mezcla, n);
+			hecho += n;
+		}
+		return frames;
+	}
+	return SND_batchSamples((const SND_Frame*)data, frames);
 	// return frames;
 };
 
@@ -4369,6 +4392,7 @@ static void Menu_loop(void) {
 				case ITEM_OPTS: {
 					if (simple_mode) {
 						core.reset();
+						Logros_reset();
 						status = STATUS_RESET;
 						show_menu = 0;
 					}
@@ -4492,6 +4516,19 @@ static void Menu_loop(void) {
 				SDL_FreeSurface(text);
 			}
 			
+			// logros del juego, a la derecha de la última opción (la vista previa
+			// de las partidas ocupa ese lado al guardar o cargar)
+			char logros[64];
+			if (selected!=ITEM_SAVE && selected!=ITEM_LOAD && Logros_resumen(logros, sizeof(logros))) {
+				text = TTF_RenderUTF8_Blended(font.small, logros, COLOR_WHITE);
+				int lw = text->w + SCALE1(BUTTON_PADDING * 2);
+				int lx = screen->w - SCALE1(PADDING) - lw;
+				int ly = SCALE1(oy + PADDING + ((MENU_ITEM_COUNT - 1) * PILL_SIZE));
+				GFX_blitPill(ASSET_BLACK_PILL, screen, &(SDL_Rect){lx, ly, lw, SCALE1(PILL_SIZE)});
+				SDL_BlitSurface(text, NULL, screen, &(SDL_Rect){lx + SCALE1(BUTTON_PADDING), ly + (SCALE1(PILL_SIZE) - text->h) / 2});
+				SDL_FreeSurface(text);
+			}
+
 			// slot preview
 			if (selected==ITEM_SAVE || selected==ITEM_LOAD) {
 				#define WINDOW_RADIUS 4 // TODO: this logic belongs in blitRect?
@@ -4667,6 +4704,7 @@ static void* coreThread(void *arg) {
 		
 		if (run) {
 			core.run();
+			Logros_doFrame();
 			limitFF();
 			trackFPS();
 		}
@@ -4675,6 +4713,7 @@ static void* coreThread(void *arg) {
 }
 
 int main(int argc , char* argv[]) {
+	if (argc>1 && !strcmp(argv[1], "--ra-hash")) return Logros_hashMain(argc, argv);
 	LOG_info("MinArch\n");
 
 	setOverclock(overclock); // default to normal
@@ -4728,6 +4767,8 @@ int main(int argc , char* argv[]) {
 	options_menu.items[1].desc = (char*)core.version;
 	
 	Core_load();
+	Logros_init(core.get_memory_data, core.get_memory_size, core.sample_rate);
+	Logros_loadGame(game.tmp_path[0] ? game.tmp_path : game.path, game.data, game.size, core.tag);
 	Input_init(NULL);
 	Config_readOptions(); // but others load and report options later (eg. nes)
 	Config_readControls(); // restore controls (after the core has reported its defaults)
@@ -4761,6 +4802,7 @@ int main(int argc , char* argv[]) {
 		
 		if (!thread_video) {
 			core.run();
+			Logros_doFrame();
 			limitFF();
 			trackFPS();
 		}
@@ -4816,6 +4858,7 @@ int main(int argc , char* argv[]) {
 	
 finish:
 
+	Logros_quit();
 	Game_close();
 	Core_unload();
 	

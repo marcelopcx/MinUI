@@ -32,7 +32,8 @@ adaptado para una Miyoo Mini Plus.
   `http://<ip-de-la-consola>`. Usa primero el `wpa_supplicant` del firmware, que es el que
   conecta en la Mini Plus; se apaga solo tras 3 min sin conexión. Para que el botón vuelva a
   "Encender" al arrancar, copia `Wi-Fi/.wifi/auto.sh` a `.userdata/miyoomini/auto.sh`.
-  Registros en `.userdata/miyoomini/logs/` (`Wi-Fi.txt`, `wpa-N.txt`, `Sincronizar.txt`).
+  Registros en `.userdata/miyoomini/logs/` (`Wi-Fi.txt`, `wpa-N.txt`, `Sincronizar.txt`,
+  `Logros.txt`).
   Binarios incluidos: driver `8188fu.ko`, `wpa_supplicant`/`wpa_cli`/`libnl-tiny.so` y
   `wget` (de Onion OS) y `filebrowser` v2.5.4.
 - **Sincronizar con RomM**: llama al servicio `servidor/miyoo-sync` (Docker), que descarga
@@ -40,6 +41,24 @@ adaptado para una Miyoo Mini Plus.
   estados (`.st0`–`.st9`) en ambos sentidos. Dirección del servicio en `Wi-Fi/.wifi/servidor.txt`.
 - **Batería**: muestra porcentaje, voltaje y si carga, y deja un medidor que anota cada minuto
   el consumo en `.userdata/miyoomini/logs/bateria.csv` (para estimar la duración por juego).
+
+**Logros de RetroAchievements (sin conexión)**
+- minarch lleva [rcheevos](https://github.com/RetroAchievements/rcheevos) (`logros.c`): los
+  logros se detectan mientras juegas sin necesidad de internet y aparece el aviso
+  "Logro desbloqueado: …" con un sonido de logro (sintetizado, se mezcla con el juego). El
+  menú del juego muestra "Logros: X de Y".
+- Los desbloqueos se guardan en `.userdata/shared/.ra/pendientes.txt` y se envían a
+  retroachievements.org con **Wi-Fi → Sincronizar logros** (aparte de "Sincronizar con
+  RomM"), con la hora real del desbloqueo. Funciona con cualquier red con internet.
+- Esa misma sincronización identifica los juegos de la SD (`minarch.elf --ra-hash TAG rom`,
+  incluidos los `.chd` con libchdr) y descarga sus logros, para que funcionen sin conexión.
+  Los juegos en `.zip` (salvo arcade) se identifican la primera vez que se juegan y quedan
+  listos en la siguiente sincronización.
+- Cuenta: crea `.userdata/shared/.ra/cuenta.txt` con `usuario=...` y `clave=...`. Tras el
+  primer inicio de sesión la clave se borra y solo queda el token.
+- Modo normal (softcore): los estados guardados siguen funcionando; el progreso de los
+  logros se guarda junto a cada estado (`.ra`).
+- `curl` y sus librerías vienen de Onion OS; `cacert.pem` son los certificados raíz.
 
 **Arcade (Miyoo Mini)**
 - Paks `CPS1`, `CPS2`, `CPS3`, `NEOGEO`, `FBN` y `MAME` en `skeleton/EXTRAS/Emus/miyoomini`.
