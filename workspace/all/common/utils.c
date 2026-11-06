@@ -48,6 +48,13 @@ void getDisplayName(const char* in_name, char* out_name) {
 	tmp = strrchr(work_name, '/');
 	if (tmp) strcpy(out_name, tmp+1);
 	
+	// quitar el prefijo de orden "N) " (p. ej. "1) Wi-Fi" se muestra como "Wi-Fi")
+	if (isdigit((unsigned char)out_name[0])) {
+		tmp = out_name;
+		while (isdigit((unsigned char)*tmp)) tmp++;
+		if (tmp[0]==')' && tmp[1]==' ' && tmp[2]!='\0') memmove(out_name, tmp+2, strlen(tmp+2)+1);
+	}
+	
 	// remove extension(s), eg. .p8.png
 	while ((tmp = strrchr(out_name, '.'))!=NULL) {
 		int len = strlen(tmp);

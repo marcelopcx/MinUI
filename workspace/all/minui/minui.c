@@ -140,9 +140,25 @@ static int EntryArray_indexOf(Array* self, char* path) {
 	}
 	return -1;
 }
+// prefijo de orden "N) " al inicio del nombre de archivo (ver getDisplayName); -1 si no hay
+static int sortPrefix(Entry* entry) {
+	char* name = strrchr(entry->path, '/');
+	name = name ? name+1 : entry->path;
+	if (!isdigit((unsigned char)name[0])) return -1;
+	int n = 0;
+	while (isdigit((unsigned char)*name)) n = n*10 + (*name++ - '0');
+	return (name[0]==')' && name[1]==' ') ? n : -1;
+}
 static int EntryArray_sortEntry(const void* a, const void* b) {
 	Entry* item1 = *(Entry**)a;
 	Entry* item2 = *(Entry**)b;
+	// los que tienen prefijo de orden van primero y por su número
+	int o1 = sortPrefix(item1), o2 = sortPrefix(item2);
+	if (o1>=0 || o2>=0) {
+		if (o1<0) return 1;
+		if (o2<0) return -1;
+		if (o1!=o2) return o1-o2;
+	}
 	return strcasecmp(item1->name, item2->name);
 }
 static void EntryArray_sort(Array* self) {

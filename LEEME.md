@@ -17,6 +17,11 @@ adaptado para una Miyoo Mini Plus.
 - En Miyoo Mini se usa el valor real de `/tmp/battery` en lugar de redondearlo a 5 niveles
   (`workspace/miyoomini/platform/platform.c`). El aviso de batería baja sigue en 10 %.
 
+**Orden de los menús**
+- Un nombre que empiece por `N) ` (p. ej. `1) Wi-Fi`) se ordena por ese número y se muestra
+  sin el prefijo (`workspace/all/minui/minui.c`, `workspace/all/common/utils.c`). Así las
+  herramientas van por uso: Wi-Fi, Batería, Archivos, Fecha y hora.
+
 **Herramientas (Miyoo Mini)**
 - Solo quedan **Wi-Fi**, **Archivos**, **Fecha y hora** y **Batería** (ver el paso `package` del `makefile`).
 - **Wi-Fi** (submenú de Herramientas): *Encender* / *Apagar* (el nombre cambia según el
