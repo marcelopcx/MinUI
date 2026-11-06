@@ -2909,21 +2909,27 @@ void scale1x_line(void* __restrict src, void* __restrict dst, uint32_t sw, uint3
 	// gambatte uses a 256 pixel wide buffer
 	// (only matters when using memcpy) 
 	int ip = sw * FIXED_BPP; 
-	int src_stride = 2 * sp / FIXED_BPP;
-	int dst_stride = 2 * dp / FIXED_BPP;
+	int src_stride = sp / FIXED_BPP; // una fila
+	int dst_stride = dp / FIXED_BPP;
 	int cpy_pitch = MIN(ip, dp);
 	
+	// filas pares tal cual, impares oscurecidas. Antes avanzaba dos filas antes de
+	// oscurecer, así que en la última vuelta leía una fila fuera de la imagen y el
+	// emulador se cerraba (PS a 640x480 con el efecto "Línea").
 	uint16_t k = 0x0000;
 	uint16_t* restrict src_row = (uint16_t*)src;
 	uint16_t* restrict dst_row = (uint16_t*)dst;
 	for (int y=0; y<sh; y+=2) {
 		memcpy(dst_row, src_row, cpy_pitch);
+		if (y+1>=sh) break;
 		dst_row += dst_stride;
 		src_row += src_stride;
 		for (unsigned x=0; x<sw; x++) {
 			uint16_t s = *(src_row + x);
 			*(dst_row + x) = Weight3_1(s, k);
 		}
+		dst_row += dst_stride;
+		src_row += src_stride;
 	}
 }
 void scale2x_line(void* __restrict src, void* __restrict dst, uint32_t sw, uint32_t sh, uint32_t sp, uint32_t dw, uint32_t dh, uint32_t dp) {
