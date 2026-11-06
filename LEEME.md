@@ -18,7 +18,7 @@ adaptado para una Miyoo Mini Plus.
   (`workspace/miyoomini/platform/platform.c`). El aviso de batería baja sigue en 10 %.
 
 **Herramientas (Miyoo Mini)**
-- Solo quedan **Wi-Fi**, **Archivos** y **Fecha y hora** (ver el paso `package` del `makefile`).
+- Solo quedan **Wi-Fi**, **Archivos**, **Fecha y hora** y **Batería** (ver el paso `package` del `makefile`).
 - **Wi-Fi** (submenú de Herramientas): *Encender o apagar*, *IP de la consola* y
   *Sincronizar con servidor*. Conecta a las redes de `Wi-Fi/.wifi/wifi.txt` (varias, nombre
   y clave en líneas seguidas; solo 2,4 GHz) y abre un explorador de archivos web
@@ -30,6 +30,8 @@ adaptado para una Miyoo Mini Plus.
 - **Sincronizar con servidor**: llama al servicio `servidor/miyoo-sync` (Docker), que descarga
   a la consola los juegos de la colección "Miyoo" de RomM y sincroniza partidas (`.sav`) y
   estados (`.st0`–`.st9`) en ambos sentidos. Dirección del servicio en `Wi-Fi/.wifi/servidor.txt`.
+- **Batería**: muestra porcentaje, voltaje y si carga, y deja un medidor que anota cada minuto
+  el consumo en `.userdata/miyoomini/logs/bateria.csv` (para estimar la duración por juego).
 
 **Arcade (Miyoo Mini)**
 - Paks `CPS1`, `CPS2`, `CPS3`, `NEOGEO`, `FBN` y `MAME` en `skeleton/EXTRAS/Emus/miyoomini`.
