@@ -153,6 +153,7 @@ SDL_Surface* GFX_init(int mode);
 #define GFX_setEffectColor PLAT_setEffectColor // (int color)
 #define GFX_setEffect PLAT_setEffect // (int effect)
 void GFX_setMode(int mode);
+int GFX_getMode(void);
 int GFX_hdmiChanged(void);
 
 #define GFX_clear PLAT_clearVideo // (SDL_Surface* screen)
@@ -173,7 +174,12 @@ enum {
 int GFX_getVsync(void);
 void GFX_setVsync(int vsync);
 
+void GFX_applyThemeAssets(SDL_PixelFormat* fmt, uint32_t pill_sel, uint32_t pill_unsel,
+	uint32_t pill_menu, uint32_t option, uint32_t button, uint32_t bar,
+	uint32_t bar_bg, uint32_t bar_menu);
+
 int GFX_truncateText(TTF_Font* font, const char* in_name, char* out_name, int max_width, int padding); // returns final width
+int GFX_rowLabelWidth(TTF_Font* font, const char* label, int pad_x);
 int GFX_wrapText(TTF_Font* font, char* str, int max_width, int max_lines);
 
 #define GFX_getScaler PLAT_getScaler		// scaler_t:(GFX_Renderer* renderer)
@@ -185,6 +191,13 @@ void GFX_freeAAScaler(void);
 // NOTE: all dimensions should be pre-scaled
 void GFX_blitAsset(int asset, SDL_Rect* src_rect, SDL_Surface* dst, SDL_Rect* dst_rect);
 void GFX_blitPill(int asset, SDL_Surface* dst, SDL_Rect* dst_rect);
+void GFX_blitRowPill(SDL_Surface* dst, SDL_Rect* dst_rect, int selected);
+void GFX_blitPlayStationListRow(SDL_Surface* dst, SDL_Rect* dst_rect, int selected);
+void GFX_blitDsListRow(SDL_Surface* dst, SDL_Rect* dst_rect, int selected);
+void GFX_blitDsMenuTextInButton(TTF_Font* font, const char* str, SDL_Surface* dst, SDL_Rect* btn, int selected);
+void GFX_blitPsxMenuText(TTF_Font* font, const char* str, SDL_Surface* dst, SDL_Rect* at, SDL_Color color);
+int GFX_psxButtonTextMaxWidth(int button_w, int selected);
+void GFX_blitPsxMenuTextInButton(TTF_Font* font, const char* str, SDL_Surface* dst, SDL_Rect* btn, int selected);
 void GFX_blitRect(int asset, SDL_Surface* dst, SDL_Rect* dst_rect);
 void GFX_blitBattery(SDL_Surface* dst, SDL_Rect* dst_rect);
 int GFX_getButtonWidth(char* hint, char* button);
@@ -194,6 +207,7 @@ void GFX_blitMessage(TTF_Font* font, char* msg, SDL_Surface* dst, SDL_Rect* dst_
 int GFX_blitHardwareGroup(SDL_Surface* dst, int show_setting);
 void GFX_blitHardwareHints(SDL_Surface* dst, int show_setting);
 int GFX_blitButtonGroup(char** hints, int primary, SDL_Surface* dst, int align_right);
+int GFX_blitPsxHintStack(SDL_Surface* dst, char** pairs);
 
 void GFX_sizeText(TTF_Font* font, char* str, int leading, int* w, int* h);
 void GFX_blitText(TTF_Font* font, char* str, int leading, SDL_Color color, SDL_Surface* dst, SDL_Rect* dst_rect);

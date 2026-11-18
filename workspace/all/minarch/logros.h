@@ -9,7 +9,7 @@
 #include <stdint.h>
 #include "sdl.h"
 
-#define LOGROS_PATH SHARED_USERDATA_PATH "/.ra"
+// LOGROS_PATH está en defines.h
 
 // minarch.elf --ra-hash <TAG> <rom>: imprime el hash de RetroAchievements
 int  Logros_hashMain(int argc, char* argv[]);

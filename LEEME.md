@@ -41,6 +41,9 @@ adaptado para una Miyoo Mini Plus.
   estados (`.st0`–`.st9`) en ambos sentidos. Dirección del servicio en `Wi-Fi/.wifi/servidor.txt`.
 - **Batería**: muestra porcentaje, voltaje y si carga, y deja un medidor que anota cada minuto
   el consumo en `.userdata/miyoomini/logs/bateria.csv` (para estimar la duración por juego).
+- **Temas**: menú **Herramientas → Temas** (`temas.elf`). Incluye **Clásico**, **PlayStation** y **DS**.
+  Carpeta `Temas/` en la SD;
+  ver `docs/Temas.md` y `scripts/importar_tema_onion.py` para más temas Onion.
 
 **Logros de RetroAchievements (sin conexión)**
 - minarch lleva [rcheevos](https://github.com/RetroAchievements/rcheevos) (`logros.c`): los
@@ -78,3 +81,19 @@ Igual que MinUI (necesita Docker):
 ```
 make PLATFORMS=miyoomini
 ```
+
+Si `make build` falla en `fceumm` (parche desactualizado) pero ya compiló `minui`/`minarch`, puedes usar:
+
+```
+make build-apps PLATFORM=miyoomini
+```
+
+Tras corregir el parche, borra `workspace/miyoomini/cores/src/fceumm/.patched` (si existe) y vuelve a `make build`.
+
+**Desplegar temas por Wi‑Fi** (desde la carpeta `minui/`):
+
+```
+python3 scripts/desplegar_temas.py 192.168.0.108
+```
+
+Desde la raíz del repositorio: `python3 instalador/desplegar_temas.py [IP]`.

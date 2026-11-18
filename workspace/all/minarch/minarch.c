@@ -19,6 +19,7 @@
 #include "utils.h"
 #include "scaler.h"
 #include "logros.h"
+#include "theme.h"
 
 ///////////////////////////////////////
 
@@ -3800,7 +3801,7 @@ static int Menu_options(MenuList* list) {
 				int selected_row = selected - start;
 				for (int i=start,j=0; i<end; i++,j++) {
 					MenuItem* item = &items[i];
-					SDL_Color text_color = COLOR_WHITE;
+					SDL_Color text_color = COLOR_MENU_TEXT;
 
 					// int ox = (screen->w - w) / 2; // if we're centering these (but I don't think we should after seeing it)
 					if (j==selected_row) {
@@ -3815,7 +3816,7 @@ static int Menu_options(MenuList* list) {
 							w,
 							SCALE1(BUTTON_SIZE)
 						});
-						text_color = COLOR_BLACK;
+						text_color = COLOR_MENU_ON_BTN;
 						
 						if (item->desc) desc = item->desc;
 					}
@@ -3839,7 +3840,7 @@ static int Menu_options(MenuList* list) {
 				int selected_row = selected - start;
 				for (int i=start,j=0; i<end; i++,j++) {
 					MenuItem* item = &items[i];
-					SDL_Color text_color = COLOR_WHITE;
+					SDL_Color text_color = COLOR_MENU_TEXT;
 
 					if (j==selected_row) {
 						// gray pill
@@ -3852,7 +3853,7 @@ static int Menu_options(MenuList* list) {
 					}
 					
 					if (item->value>=0) {
-						text = TTF_RenderUTF8_Blended(font.tiny, item->values[item->value], COLOR_WHITE); // always white
+						text = TTF_RenderUTF8_Blended(font.tiny, item->values[item->value], COLOR_MENU_TEXT);
 						SDL_BlitSurface(text, NULL, screen, &(SDL_Rect){
 							ox + mw - text->w - SCALE1(OPTION_PADDING),
 							oy+SCALE1((j*BUTTON_SIZE)+3)
@@ -3872,7 +3873,7 @@ static int Menu_options(MenuList* list) {
 							w,
 							SCALE1(BUTTON_SIZE)
 						});
-						text_color = COLOR_BLACK;
+						text_color = COLOR_MENU_ON_BTN;
 						
 						if (item->desc) desc = item->desc;
 					}
@@ -3921,7 +3922,7 @@ static int Menu_options(MenuList* list) {
 				int selected_row = selected - start;
 				for (int i=start,j=0; i<end; i++,j++) {
 					MenuItem* item = &items[i];
-					SDL_Color text_color = COLOR_WHITE;
+					SDL_Color text_color = COLOR_MENU_TEXT;
 
 					if (j==selected_row) {
 						// gray pill
@@ -3942,7 +3943,7 @@ static int Menu_options(MenuList* list) {
 							w,
 							SCALE1(BUTTON_SIZE)
 						});
-						text_color = COLOR_BLACK;
+						text_color = COLOR_MENU_ON_BTN;
 						
 						if (item->desc) desc = item->desc;
 					}
@@ -3957,7 +3958,7 @@ static int Menu_options(MenuList* list) {
 						// buh
 					}
 					else if (item->value>=0) {
-						text = TTF_RenderUTF8_Blended(font.tiny, item->values[item->value], COLOR_WHITE); // always white
+						text = TTF_RenderUTF8_Blended(font.tiny, item->values[item->value], COLOR_MENU_TEXT);
 						SDL_BlitSurface(text, NULL, screen, &(SDL_Rect){
 							ox + mw - text->w - SCALE1(OPTION_PADDING),
 							oy+SCALE1((j*BUTTON_SIZE)+3)
@@ -3981,7 +3982,7 @@ static int Menu_options(MenuList* list) {
 			if (desc) {
 				int w,h;
 				GFX_sizeText(font.tiny, desc, SCALE1(12), &w,&h);
-				GFX_blitText(font.tiny, desc, SCALE1(12), COLOR_WHITE, screen, &(SDL_Rect){
+				GFX_blitText(font.tiny, desc, SCALE1(12), COLOR_MENU_TEXT, screen, &(SDL_Rect){
 					(screen->w - w) / 2,
 					screen->h - SCALE1(PADDING) - h,
 					w,h
@@ -4440,7 +4441,7 @@ static void Menu_loop(void) {
 			max_width = MIN(max_width, text_width);
 
 			SDL_Surface* text;
-			text = TTF_RenderUTF8_Blended(font.large, display_name, COLOR_WHITE);
+			text = TTF_RenderUTF8_Blended(font.large, display_name, COLOR_MENU_TEXT);
 			GFX_blitPill(ASSET_BLACK_PILL, screen, &(SDL_Rect){
 				SCALE1(PADDING),
 				SCALE1(PADDING),
@@ -4458,69 +4459,110 @@ static void Menu_loop(void) {
 			});
 			SDL_FreeSurface(text);
 			
-			if (show_setting && !GetHDMI()) GFX_blitHardwareHints(screen, show_setting);
-			else GFX_blitButtonGroup((char*[]){ BTN_SLEEP==BTN_POWER?"APAGAR":"MENÚ","REPOSO", NULL }, 0, screen, 0);
-			GFX_blitButtonGroup((char*[]){ "B","ATRÁS", "A","ACEPTAR", NULL }, 1, screen, 1);
+			if (show_setting && !GetHDMI()) {
+				GFX_blitHardwareHints(screen, show_setting);
+				if (THEME_pillStyle() == THEME_PILL_PSX)
+					GFX_blitPsxHintStack(screen, (char*[]){ "B","ATRÁS", "A","ACEPTAR", NULL });
+				else
+					GFX_blitButtonGroup((char*[]){ "B","ATRÁS", "A","ACEPTAR", NULL }, 1, screen, 1);
+			}
+			else if (THEME_pillStyle() == THEME_PILL_PSX) {
+				GFX_blitPsxHintStack(screen, (char*[]){
+					"B","ATRÁS",
+					"A","ACEPTAR",
+					NULL
+				});
+			}
+			else {
+				GFX_blitButtonGroup((char*[]){ BTN_SLEEP==BTN_POWER?"APAGAR":"MENÚ","REPOSO", NULL }, 0, screen, 0);
+				GFX_blitButtonGroup((char*[]){ "B","ATRÁS", "A","ACEPTAR", NULL }, 1, screen, 1);
+			}
 			
 			// list
+			int psx_chrome = THEME_pillStyle() == THEME_PILL_PSX;
+			int uniform_w = 0;
+			if (psx_chrome) {
+				// ocupa todo el ancho disponible, alineado a la retícula del fondo
+				int cap = screen->w - SCALE1(PADDING * 2);
+				uniform_w = THEME_alignRight(SCALE1(PADDING) + cap) - SCALE1(PADDING);
+			}
 			oy = (((DEVICE_HEIGHT / FIXED_SCALE) - PADDING * 2) - (MENU_ITEM_COUNT * PILL_SIZE)) / 2;
 			for (int i=0; i<MENU_ITEM_COUNT; i++) {
 				char* item = menu.items[i];
-				SDL_Color text_color = COLOR_WHITE;
-				
+				SDL_Color text_color = COLOR_MENU_TEXT;
+				int row_y = SCALE1(oy + PADDING + (i * PILL_SIZE));
+				int disc_row = menu.total_discs>1 && i==ITEM_CONT;
+
+				// fila completa al estilo botón PSX (tapas cromadas, marco amarillo si está seleccionada)
+				if (psx_chrome) {
+					GFX_blitRowPill(screen, &(SDL_Rect){SCALE1(PADDING), row_y, uniform_w, SCALE1(PILL_SIZE)}, i==selected);
+				}
+
 				if (i==selected) {
 					// disc change
-					if (menu.total_discs>1 && i==ITEM_CONT) {				
-						GFX_blitPill(ASSET_DARK_GRAY_PILL, screen, &(SDL_Rect){
+					if (disc_row) {
+						if (!psx_chrome) {
+							GFX_blitPill(ASSET_DARK_GRAY_PILL, screen, &(SDL_Rect){
+								SCALE1(PADDING),
+								SCALE1(oy + PADDING),
+								screen->w - SCALE1(PADDING * 2),
+								SCALE1(PILL_SIZE)
+							});
+						}
+						int dw = 0;
+						TTF_SizeUTF8(font.large, disc_name, &dw, NULL);
+						SDL_Rect disc_at = {
+							screen->w - SCALE1(PADDING + BUTTON_PADDING) - dw,
+							SCALE1(oy + PADDING + 4)
+						};
+						if (psx_chrome) {
+							GFX_blitPsxMenuText(font.large, disc_name, screen, &disc_at, COLOR_MENU_TEXT);
+						} else {
+							text = TTF_RenderUTF8_Blended(font.large, disc_name, COLOR_MENU_TEXT);
+							SDL_BlitSurface(text, NULL, screen, &disc_at);
+							SDL_FreeSurface(text);
+						}
+					}
+
+					if (!psx_chrome) {
+						TTF_SizeUTF8(font.large, item, &ow, NULL);
+						ow += SCALE1(BUTTON_PADDING*2);
+
+						// pill
+						GFX_blitPill(ASSET_WHITE_PILL, screen, &(SDL_Rect){
 							SCALE1(PADDING),
-							SCALE1(oy + PADDING),
-							screen->w - SCALE1(PADDING * 2),
+							row_y,
+							ow,
 							SCALE1(PILL_SIZE)
 						});
-						text = TTF_RenderUTF8_Blended(font.large, disc_name, COLOR_WHITE);
-						SDL_BlitSurface(text, NULL, screen, &(SDL_Rect){
-							screen->w - SCALE1(PADDING + BUTTON_PADDING) - text->w,
-							SCALE1(oy + PADDING + 4)
-						});
-						SDL_FreeSurface(text);
 					}
-					
-					TTF_SizeUTF8(font.large, item, &ow, NULL);
-					ow += SCALE1(BUTTON_PADDING*2);
-					
-					// pill
-					GFX_blitPill(ASSET_WHITE_PILL, screen, &(SDL_Rect){
-						SCALE1(PADDING),
-						SCALE1(oy + PADDING + (i * PILL_SIZE)),
-						ow,
-						SCALE1(PILL_SIZE)
-					});
-					text_color = COLOR_BLACK;
+					text_color = psx_chrome ? (SDL_Color){0xff, 0xff, 0xff, 0xff} : COLOR_MENU_ON_BTN;
 				}
 				else {
-					// shadow
-					text = TTF_RenderUTF8_Blended(font.large, item, COLOR_BLACK);
+					text_color = psx_chrome ? (SDL_Color){0xff, 0xff, 0xff, 0xff} : COLOR_MENU_TEXT_DIM;
+				}
+
+				// text
+				if (psx_chrome) {
+					GFX_blitPsxMenuText(font.large, item, screen, &(SDL_Rect){
+						SCALE1(PADDING + BUTTON_PADDING),
+						row_y + SCALE1(4)
+					}, text_color);
+				} else {
+					text = TTF_RenderUTF8_Blended(font.large, item, text_color);
 					SDL_BlitSurface(text, NULL, screen, &(SDL_Rect){
-						SCALE1(2 + PADDING + BUTTON_PADDING),
-						SCALE1(1 + PADDING + oy + (i * PILL_SIZE) + 4)
+						SCALE1(PADDING + BUTTON_PADDING),
+						row_y + SCALE1(4)
 					});
 					SDL_FreeSurface(text);
 				}
-				
-				// text
-				text = TTF_RenderUTF8_Blended(font.large, item, text_color);
-				SDL_BlitSurface(text, NULL, screen, &(SDL_Rect){
-					SCALE1(PADDING + BUTTON_PADDING),
-					SCALE1(oy + PADDING + (i * PILL_SIZE) + 4)
-				});
-				SDL_FreeSurface(text);
 			}
 			
 			// logros del juego, a la derecha de la última opción (la vista previa
 			// de las partidas ocupa ese lado al guardar o cargar)
 			char logros[64];
 			if (selected!=ITEM_SAVE && selected!=ITEM_LOAD && Logros_resumen(logros, sizeof(logros))) {
-				text = TTF_RenderUTF8_Blended(font.small, logros, COLOR_WHITE);
+				text = TTF_RenderUTF8_Blended(font.small, logros, COLOR_MENU_TEXT);
 				int lw = text->w + SCALE1(BUTTON_PADDING * 2);
 				int lx = screen->w - SCALE1(PADDING) - lw;
 				int ly = SCALE1(oy + PADDING + ((MENU_ITEM_COUNT - 1) * PILL_SIZE));
@@ -4745,6 +4787,14 @@ int main(int argc , char* argv[]) {
 	
 	// Overrides_init();
 	
+	// animación de arranque del tema (PS2): reemplaza la cortinilla de carga. Corre en
+	// segundo plano mientras se carga el núcleo y el juego, solo al abrir un juego de
+	// forma normal (no con SEGUIR ni al reanudar tras apagar).
+	if (exists(NORMAL_LAUNCH_PATH)) {
+		unlink(NORMAL_LAUNCH_PATH);
+		THEME_startBootAnim(screen);
+	}
+	
 	Core_open(core_path, tag_name);
 	Game_open(rom_path); // nes tries to load gamegenie setting before this returns ffs
 	if (!game.is_open) goto finish;
@@ -4774,6 +4824,9 @@ int main(int argc , char* argv[]) {
 	Config_readControls(); // restore controls (after the core has reported its defaults)
 	Config_free();
 		
+	// la animación sigue hasta aquí si la carga fue más rápida; SND_init necesita el audio libre
+	THEME_finishBootAnim(0);
+
 	SND_init(core.sample_rate, core.fps);
 	InitSettings(); // after we initialize audio
 	Menu_init();
@@ -4857,6 +4910,7 @@ int main(int argc , char* argv[]) {
 	QuitSettings();
 	
 finish:
+	THEME_finishBootAnim(1); // por si la carga falló con la animación en marcha
 
 	Logros_quit();
 	Game_close();

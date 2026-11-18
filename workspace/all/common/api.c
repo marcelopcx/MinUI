@@ -17,6 +17,7 @@
 #include "defines.h"
 #include "api.h"
 #include "utils.h"
+#include "theme.h"
 
 ///////////////////////////////
 
@@ -99,27 +100,6 @@ SDL_Surface* GFX_init(int mode) {
 	gfx.vsync = VSYNC_STRICT;
 	gfx.mode = mode;
 	
-	RGB_WHITE		= SDL_MapRGB(gfx.screen->format, TRIAD_WHITE);
-	RGB_BLACK		= SDL_MapRGB(gfx.screen->format, TRIAD_BLACK);
-	RGB_LIGHT_GRAY	= SDL_MapRGB(gfx.screen->format, TRIAD_LIGHT_GRAY);
-	RGB_GRAY		= SDL_MapRGB(gfx.screen->format, TRIAD_GRAY);
-	RGB_DARK_GRAY	= SDL_MapRGB(gfx.screen->format, TRIAD_DARK_GRAY);
-	
-	asset_rgbs[ASSET_WHITE_PILL]	= RGB_WHITE;
-	asset_rgbs[ASSET_BLACK_PILL]	= RGB_BLACK;
-	asset_rgbs[ASSET_DARK_GRAY_PILL]= RGB_DARK_GRAY;
-	asset_rgbs[ASSET_OPTION]		= RGB_DARK_GRAY;
-	asset_rgbs[ASSET_BUTTON]		= RGB_WHITE;
-	asset_rgbs[ASSET_PAGE_BG]		= RGB_WHITE;
-	asset_rgbs[ASSET_STATE_BG]		= RGB_WHITE;
-	asset_rgbs[ASSET_PAGE]			= RGB_BLACK;
-	asset_rgbs[ASSET_BAR]			= RGB_WHITE;
-	asset_rgbs[ASSET_BAR_BG]		= RGB_BLACK;
-	asset_rgbs[ASSET_BAR_BG_MENU]	= RGB_DARK_GRAY;
-	asset_rgbs[ASSET_UNDERLINE]		= RGB_GRAY;
-	asset_rgbs[ASSET_DOT]			= RGB_LIGHT_GRAY;
-	asset_rgbs[ASSET_HOLE]			= RGB_BLACK;
-	
 	asset_rects[ASSET_WHITE_PILL]		= (SDL_Rect){SCALE4( 1, 1,30,30)};
 	asset_rects[ASSET_BLACK_PILL]		= (SDL_Rect){SCALE4(33, 1,30,30)};
 	asset_rects[ASSET_DARK_GRAY_PILL]	= (SDL_Rect){SCALE4(65, 1,30,30)};
@@ -152,17 +132,35 @@ SDL_Surface* GFX_init(int mode) {
 	gfx.assets = IMG_Load(asset_path);
 	
 	TTF_Init();
-	font.large 	= TTF_OpenFont(FONT_PATH, SCALE1(FONT_LARGE));
-	font.medium = TTF_OpenFont(FONT_PATH, SCALE1(FONT_MEDIUM));
-	font.small 	= TTF_OpenFont(FONT_PATH, SCALE1(FONT_SMALL));
-	font.tiny 	= TTF_OpenFont(FONT_PATH, SCALE1(FONT_TINY));
-	
-	TTF_SetFontStyle(font.large, TTF_STYLE_BOLD);
-	TTF_SetFontStyle(font.medium, TTF_STYLE_BOLD);
-	TTF_SetFontStyle(font.small, TTF_STYLE_BOLD);
-	TTF_SetFontStyle(font.tiny, TTF_STYLE_BOLD);
+	THEME_init(gfx.screen);
+	GFX_reloadFonts();
 	
 	return gfx.screen;
+}
+
+void GFX_reloadFonts(void) {
+	const char* path = THEME_fontPath();
+	int bold = !THEME_usesCustomFont();
+
+	if (font.large) TTF_CloseFont(font.large);
+	if (font.medium) TTF_CloseFont(font.medium);
+	if (font.small) TTF_CloseFont(font.small);
+	if (font.tiny) TTF_CloseFont(font.tiny);
+
+	font.large = TTF_OpenFont(path, SCALE1(FONT_LARGE));
+	font.medium = TTF_OpenFont(path, SCALE1(FONT_MEDIUM));
+	font.small = TTF_OpenFont(path, SCALE1(FONT_SMALL));
+	font.tiny = TTF_OpenFont(path, SCALE1(FONT_TINY));
+
+	if (!font.large) font.large = TTF_OpenFont(THEME_DEFAULT_FONT, SCALE1(FONT_LARGE));
+	if (!font.medium) font.medium = TTF_OpenFont(THEME_DEFAULT_FONT, SCALE1(FONT_MEDIUM));
+	if (!font.small) font.small = TTF_OpenFont(THEME_DEFAULT_FONT, SCALE1(FONT_SMALL));
+	if (!font.tiny) font.tiny = TTF_OpenFont(THEME_DEFAULT_FONT, SCALE1(FONT_TINY));
+
+	TTF_SetFontStyle(font.large, bold ? TTF_STYLE_BOLD : TTF_STYLE_NORMAL);
+	TTF_SetFontStyle(font.medium, bold ? TTF_STYLE_BOLD : TTF_STYLE_NORMAL);
+	TTF_SetFontStyle(font.small, bold ? TTF_STYLE_BOLD : TTF_STYLE_NORMAL);
+	TTF_SetFontStyle(font.tiny, bold ? TTF_STYLE_BOLD : TTF_STYLE_NORMAL);
 }
 void GFX_quit(void) {
 	TTF_CloseFont(font.large);
@@ -182,12 +180,34 @@ void GFX_quit(void) {
 void GFX_setMode(int mode) {
 	gfx.mode = mode;
 }
+int GFX_getMode(void) {
+	return gfx.mode;
+}
 int GFX_getVsync(void) {
 	return gfx.vsync;
 }
 void GFX_setVsync(int vsync) {
 	PLAT_setVsync(vsync);
 	gfx.vsync = vsync;
+}
+
+void GFX_applyThemeAssets(SDL_PixelFormat* fmt, uint32_t pill_sel, uint32_t pill_unsel,
+	uint32_t pill_menu, uint32_t option, uint32_t button, uint32_t bar,
+	uint32_t bar_bg, uint32_t bar_menu) {
+	asset_rgbs[ASSET_WHITE_PILL] = SDL_MapRGB(fmt, pill_sel >> 16, (pill_sel >> 8) & 0xff, pill_sel & 0xff);
+	asset_rgbs[ASSET_BLACK_PILL] = SDL_MapRGB(fmt, pill_menu >> 16, (pill_menu >> 8) & 0xff, pill_menu & 0xff);
+	asset_rgbs[ASSET_DARK_GRAY_PILL] = SDL_MapRGB(fmt, pill_unsel >> 16, (pill_unsel >> 8) & 0xff, pill_unsel & 0xff);
+	asset_rgbs[ASSET_OPTION] = SDL_MapRGB(fmt, option >> 16, (option >> 8) & 0xff, option & 0xff);
+	asset_rgbs[ASSET_BUTTON] = SDL_MapRGB(fmt, button >> 16, (button >> 8) & 0xff, button & 0xff);
+	asset_rgbs[ASSET_PAGE_BG] = asset_rgbs[ASSET_BUTTON];
+	asset_rgbs[ASSET_STATE_BG] = asset_rgbs[ASSET_BUTTON];
+	asset_rgbs[ASSET_PAGE] = SDL_MapRGB(fmt, 0, 0, 0);
+	asset_rgbs[ASSET_BAR] = SDL_MapRGB(fmt, bar >> 16, (bar >> 8) & 0xff, bar & 0xff);
+	asset_rgbs[ASSET_BAR_BG] = SDL_MapRGB(fmt, bar_bg >> 16, (bar_bg >> 8) & 0xff, bar_bg & 0xff);
+	asset_rgbs[ASSET_BAR_BG_MENU] = SDL_MapRGB(fmt, bar_menu >> 16, (bar_menu >> 8) & 0xff, bar_menu & 0xff);
+	asset_rgbs[ASSET_UNDERLINE] = RGB_GRAY;
+	asset_rgbs[ASSET_DOT] = RGB_LIGHT_GRAY;
+	asset_rgbs[ASSET_HOLE] = RGB_BLACK;
 }
 
 int GFX_hdmiChanged(void) {
@@ -240,6 +260,15 @@ int GFX_truncateText(TTF_Font* font, const char* in_name, char* out_name, int ma
 	
 	return text_width;
 }
+
+int GFX_rowLabelWidth(TTF_Font* font, const char* label, int pad_x) {
+	int tw = 0;
+	if (!label || !label[0])
+		return pad_x;
+	TTF_SizeUTF8(font, label, &tw, NULL);
+	return tw + pad_x;
+}
+
 int GFX_wrapText(TTF_Font* font, char* str, int max_width, int max_lines) {
 	if (!str) return 0;
 	
@@ -517,6 +546,277 @@ void GFX_blitAsset(int asset, SDL_Rect* src_rect, SDL_Surface* dst, SDL_Rect* ds
 	}
 	SDL_BlitSurface(gfx.assets, &adj_rect, dst, dst_rect);
 }
+static Uint32 map_px(SDL_Surface* dst, uint8_t r, uint8_t g, uint8_t b) {
+	return SDL_MapRGB(dst->format, r, g, b);
+}
+
+/* Lista COPY/DELETE: degradado suave con colores del tema (fondo/rejilla). */
+static void GFX_blitPsxMenuMetal(SDL_Surface* dst, SDL_Rect* in) {
+	Uint8 r0, g0, b0, r1, g1, b1, rh, gh, bh, rd, gd, bd;
+	SDL_GetRGB(asset_rgbs[ASSET_BAR_BG], dst->format, &r0, &g0, &b0);
+	SDL_GetRGB(asset_rgbs[ASSET_BAR_BG_MENU], dst->format, &r1, &g1, &b1);
+	r0 = (uint8_t)MIN(255, r0 + 18);
+	g0 = (uint8_t)MIN(255, g0 + 18);
+	b0 = (uint8_t)MIN(255, b0 + 14);
+	r1 = (uint8_t)MAX(0, r1 - 8);
+	g1 = (uint8_t)MAX(0, g1 - 8);
+	b1 = (uint8_t)MAX(0, b1 - 6);
+	rh = (uint8_t)MIN(255, r0 + 28);
+	gh = (uint8_t)MIN(255, g0 + 28);
+	bh = (uint8_t)MIN(255, b0 + 24);
+	/* Borde/tapa de los botones: cromo azul-marino oscuro, igual a la sombra
+	   del texto, como en los botones redondeados del menú de tarjeta de
+	   memoria real (no el gris claro del pill sin seleccionar). */
+	rd = 0x28; gd = 0x28; bd = 0x38;
+	int y0 = in->y;
+	int border = SCALE1(2);
+	if (border * 2 >= in->w) border = in->w / 4;
+	if (border < 1) border = 1;
+
+	for (int y = 0; y < in->h; y++) {
+		int t = in->h > 1 ? (y * 255) / (in->h - 1) : 0;
+		uint8_t r = (uint8_t)(r0 + (r1 - r0) * t / 255);
+		uint8_t g = (uint8_t)(g0 + (g1 - g0) * t / 255);
+		uint8_t b = (uint8_t)(b0 + (b1 - b0) * t / 255);
+		SDL_FillRect(dst, &(SDL_Rect){in->x, y0 + y, in->w, 1}, map_px(dst, r, g, b));
+	}
+	SDL_FillRect(dst, &(SDL_Rect){in->x, in->y, in->w, 1}, map_px(dst, rh, gh, bh));
+	SDL_FillRect(dst, &(SDL_Rect){in->x, in->y, border, in->h}, map_px(dst, rd, gd, bd));
+	SDL_FillRect(dst, &(SDL_Rect){in->x + in->w - border, in->y, border, in->h}, map_px(dst, rd, gd, bd));
+	SDL_FillRect(dst, &(SDL_Rect){in->x, in->y + in->h - 1, in->w, 1}, map_px(dst, rd, gd, bd));
+}
+
+static void GFX_blitPsxMenuButton(SDL_Surface* dst, SDL_Rect* box, int selected) {
+	Uint32 yellow = asset_rgbs[ASSET_WHITE_PILL];
+	int border = selected ? 2 : 0;
+
+	if (selected)
+		SDL_FillRect(dst, box, yellow);
+	if (box->w <= border * 2 || box->h <= border * 2) {
+		if (!selected && box->w > 0 && box->h > 0)
+			GFX_blitPsxMenuMetal(dst, box);
+		return;
+	}
+
+	SDL_Rect in = {box->x + border, box->y + border, box->w - border * 2, box->h - border * 2};
+	GFX_blitPsxMenuMetal(dst, &in);
+}
+
+/* Cromo del menú CD / barra superior (piedra gris clara, sin amarillo). */
+static void GFX_blitPsxChromeBar(SDL_Surface* dst, SDL_Rect* box) {
+	Uint32 metal_hi = map_px(dst, 0xd4, 0xd8, 0xe0);
+	Uint32 metal_lo = map_px(dst, 0x90, 0x94, 0xa4);
+	Uint32 shade = map_px(dst, 0x50, 0x54, 0x60);
+	Uint32 hilite = map_px(dst, 0xf4, 0xf6, 0xfc);
+	int half = box->h / 2;
+
+	SDL_FillRect(dst, &(SDL_Rect){box->x, box->y, box->w, half}, metal_hi);
+	SDL_FillRect(dst, &(SDL_Rect){box->x, box->y + half, box->w, box->h - half}, metal_lo);
+	SDL_FillRect(dst, &(SDL_Rect){box->x, box->y, box->w, 1}, shade);
+	SDL_FillRect(dst, &(SDL_Rect){box->x, box->y, 1, box->h}, shade);
+	SDL_FillRect(dst, &(SDL_Rect){box->x, box->y + box->h - 1, box->w, 1}, hilite);
+	SDL_FillRect(dst, &(SDL_Rect){box->x + box->w - 1, box->y, 1, box->h}, hilite);
+}
+
+/* Pastilla plana de un solo color, como "MEMORY CARD" / "CD PLAYER" del menú
+   principal real de PS1: relleno sólido + texto blanco con sombra negra,
+   sin degradado metálico. Se usa para elementos de estado/atajos, no listas. */
+static void GFX_blitPsxFlatLabel(SDL_Surface* dst, SDL_Rect* box, Uint32 fill_px, TTF_Font* f, const char* label) {
+	SDL_FillRect(dst, box, fill_px);
+	if (!label || !label[0] || !f) return;
+	SDL_Color white = {0xff, 0xff, 0xff, 0xff};
+	SDL_Color shadow = {0x10, 0x10, 0x10, 0xff};
+	int max_w = box->w - SCALE1(BUTTON_PADDING);
+	if (max_w < SCALE1(8)) max_w = box->w;
+	char fit[128];
+	GFX_truncateText(f, label, fit, max_w, 0);
+	int tw = 0, th = 0;
+	TTF_SizeUTF8(f, fit, &tw, &th);
+	int tx = box->x + (box->w - tw) / 2;
+	int ty = box->y + (box->h - th) / 2;
+	SDL_Rect prev_clip;
+	SDL_GetClipRect(dst, &prev_clip);
+	SDL_SetClipRect(dst, box);
+	SDL_Surface* text = TTF_RenderUTF8_Blended(f, fit, shadow);
+	if (text) {
+		SDL_BlitSurface(text, NULL, dst, &(SDL_Rect){tx + SCALE1(1), ty + SCALE1(1)});
+		SDL_FreeSurface(text);
+	}
+	text = TTF_RenderUTF8_Blended(f, fit, white);
+	if (text) {
+		SDL_BlitSurface(text, NULL, dst, &(SDL_Rect){tx, ty});
+		SDL_FreeSurface(text);
+	}
+	SDL_SetClipRect(dst, &prev_clip);
+}
+
+/* Apila los atajos de botones (B Atrás, A Abrir, ...) a la derecha, en rojo,
+   cada uno ocupando 2 celdas de la retícula, como "CD PLAYER" en el BIOS. */
+int GFX_blitPsxHintStack(SDL_Surface* dst, char** pairs) {
+	int n = 0;
+	while (pairs[n * 2]) n++;
+	if (n == 0) return 0;
+
+	Uint32 red = map_px(dst, 0xa8, 0x20, 0x20);
+	int cell = THEME_gridCell();
+	if (cell <= 0) cell = SCALE1(PILL_SIZE);
+	int w = cell * 2;
+	int right_edge = THEME_alignRight(dst->w - SCALE1(PADDING));
+	int x = right_edge - w;
+	int y = THEME_footerY(dst->h);
+
+	for (int i = n - 1; i >= 0; i--) {
+		char label[128];
+		snprintf(label, sizeof(label), "%s %s", pairs[i * 2], pairs[i * 2 + 1]);
+		GFX_blitPsxFlatLabel(dst, &(SDL_Rect){x, y, w, cell}, red, font.tiny, label);
+		y -= cell;
+	}
+	return w;
+}
+
+void GFX_blitRowPill(SDL_Surface* dst, SDL_Rect* dst_rect, int selected) {
+	SDL_Rect r = *dst_rect;
+	if (r.h == 0) r.h = SCALE1(PILL_SIZE);
+
+	if (THEME_pillStyle() != THEME_PILL_PSX) {
+		GFX_blitPill(selected ? ASSET_WHITE_PILL : ASSET_DARK_GRAY_PILL, dst, &r);
+		return;
+	}
+
+	GFX_blitPsxMenuButton(dst, &r, selected);
+}
+
+void GFX_blitPlayStationListRow(SDL_Surface* dst, SDL_Rect* dst_rect, int selected) {
+	SDL_Rect r = *dst_rect;
+	if (r.h == 0) r.h = SCALE1(PILL_SIZE);
+	GFX_blitPsxMenuButton(dst, &r, selected);
+}
+
+/* Botones estilo firmware DS Lite (plástico gris claro). */
+static void GFX_blitDsMenuFill(SDL_Surface* dst, SDL_Rect* in) {
+	Uint8 r0, g0, b0, r1, g1, b1;
+	SDL_GetRGB(asset_rgbs[ASSET_BAR_BG], dst->format, &r0, &g0, &b0);
+	SDL_GetRGB(asset_rgbs[ASSET_BAR_BG_MENU], dst->format, &r1, &g1, &b1);
+	Uint8 rh = (uint8_t)MIN(255, r0 + 20);
+	Uint8 gh = (uint8_t)MIN(255, g0 + 20);
+	Uint8 bh = (uint8_t)MIN(255, b0 + 16);
+	/* Borde: gris acero azulado, como el marco de plástico de la DS Lite,
+	   en vez del pill claro (casi invisible sobre el relleno del botón). */
+	Uint8 er = 0x5a, eg = 0x62, eb = 0x72;
+	int y0 = in->y;
+	int border = SCALE1(2);
+	if (border * 2 >= in->w) border = in->w / 4;
+	if (border < 1) border = 1;
+
+	for (int y = 0; y < in->h; y++) {
+		int t = in->h > 1 ? (y * 255) / (in->h - 1) : 0;
+		uint8_t r = (uint8_t)(r0 + (r1 - r0) * t / 255);
+		uint8_t g = (uint8_t)(g0 + (g1 - g0) * t / 255);
+		uint8_t b = (uint8_t)(b0 + (b1 - b0) * t / 255);
+		SDL_FillRect(dst, &(SDL_Rect){in->x, y0 + y, in->w, 1}, map_px(dst, r, g, b));
+	}
+	SDL_FillRect(dst, &(SDL_Rect){in->x, in->y, in->w, 1}, map_px(dst, rh, gh, bh));
+	SDL_FillRect(dst, &(SDL_Rect){in->x, in->y, border, in->h}, map_px(dst, er, eg, eb));
+	SDL_FillRect(dst, &(SDL_Rect){in->x + in->w - border, in->y, border, in->h}, map_px(dst, er, eg, eb));
+	SDL_FillRect(dst, &(SDL_Rect){in->x, in->y + in->h - 1, in->w, 1}, map_px(dst, er, eg, eb));
+}
+
+static void GFX_blitDsMenuButton(SDL_Surface* dst, SDL_Rect* box, int selected) {
+	Uint32 sel = asset_rgbs[ASSET_WHITE_PILL];
+	int border = selected ? 2 : 0;
+	if (selected)
+		SDL_FillRect(dst, box, sel);
+	if (box->w <= border * 2 || box->h <= border * 2) {
+		if (!selected)
+			GFX_blitDsMenuFill(dst, box);
+		return;
+	}
+	SDL_Rect in = {box->x + border, box->y + border, box->w - border * 2, box->h - border * 2};
+	GFX_blitDsMenuFill(dst, &in);
+}
+
+void GFX_blitDsListRow(SDL_Surface* dst, SDL_Rect* dst_rect, int selected) {
+	SDL_Rect r = *dst_rect;
+	if (r.h == 0) r.h = SCALE1(PILL_SIZE);
+	GFX_blitDsMenuButton(dst, &r, selected);
+}
+
+void GFX_blitDsMenuTextInButton(TTF_Font* f, const char* in_name, SDL_Surface* dst, SDL_Rect* btn, int selected) {
+	char label[256];
+	int max_w = GFX_psxButtonTextMaxWidth(btn->w, 0);
+	GFX_truncateText(f, in_name, label, max_w, 0);
+
+	int tw = 0, th = 0;
+	TTF_SizeUTF8(f, label, &tw, &th);
+	int border = selected ? 2 : 0;
+	int ix = btn->x + border;
+	int iw = btn->w - border * 2;
+	SDL_Rect inner = {ix, btn->y, iw, btn->h};
+	int tx = inner.x + (inner.w - tw) / 2;
+	int ty = btn->y + (btn->h - th) / 2;
+
+	SDL_Rect prev_clip;
+	SDL_GetClipRect(dst, &prev_clip);
+	SDL_SetClipRect(dst, &inner);
+
+	SDL_Surface* text = TTF_RenderUTF8_Blended(f, label, COLOR_DARK_TEXT);
+	if (text) {
+		SDL_BlitSurface(text, NULL, dst, &(SDL_Rect){tx, ty});
+		SDL_FreeSurface(text);
+	}
+	SDL_SetClipRect(dst, &prev_clip);
+}
+
+void GFX_blitPsxMenuText(TTF_Font* f, const char* str, SDL_Surface* dst, SDL_Rect* at, SDL_Color color) {
+	SDL_Surface* text;
+	SDL_Color white = {0xff, 0xff, 0xff, 0xff};
+	SDL_Color shadow = {0x28, 0x28, 0x38, 0xff};
+	(void)color;
+	text = TTF_RenderUTF8_Blended(f, str, shadow);
+	if (text) {
+		SDL_BlitSurface(text, NULL, dst, &(SDL_Rect){at->x + SCALE1(1), at->y + SCALE1(1)});
+		SDL_FreeSurface(text);
+	}
+	text = TTF_RenderUTF8_Blended(f, str, white);
+	if (text) {
+		SDL_BlitSurface(text, NULL, dst, at);
+		SDL_FreeSurface(text);
+	}
+}
+
+#define PSX_LIST_BORDER_PX 4
+
+int GFX_psxButtonTextMaxWidth(int button_w, int selected) {
+	(void)selected;
+	int pad = SCALE1(BUTTON_PADDING * 2);
+	int inner = button_w - pad - PSX_LIST_BORDER_PX;
+	return inner > SCALE1(8) ? inner : MAX(0, button_w - PSX_LIST_BORDER_PX);
+}
+
+void GFX_blitPsxMenuTextInButton(TTF_Font* f, const char* in_name, SDL_Surface* dst, SDL_Rect* btn, int selected) {
+	char label[256];
+	int max_w = GFX_psxButtonTextMaxWidth(btn->w, 0);
+	GFX_truncateText(f, in_name, label, max_w, 0);
+
+	int tw = 0, th = 0;
+	TTF_SizeUTF8(f, label, &tw, &th);
+	int border = selected ? 2 : 0;
+	int ix = btn->x + border;
+	int iw = btn->w - border * 2;
+	SDL_Rect inner = {ix, btn->y, iw, btn->h};
+	int tx = inner.x + (inner.w - tw) / 2;
+	int ty = btn->y + (btn->h - th) / 2;
+
+	SDL_Rect prev_clip;
+	SDL_GetClipRect(dst, &prev_clip);
+	SDL_SetClipRect(dst, &inner);
+
+	SDL_Rect at = {tx, ty, 0, 0};
+	GFX_blitPsxMenuText(f, label, dst, &at, COLOR_WHITE);
+
+	SDL_SetClipRect(dst, &prev_clip);
+}
+
 void GFX_blitPill(int asset, SDL_Surface* dst, SDL_Rect* dst_rect) {
 	int x = dst_rect->x;
 	int y = dst_rect->y;
@@ -524,6 +824,12 @@ void GFX_blitPill(int asset, SDL_Surface* dst, SDL_Rect* dst_rect) {
 	int h = dst_rect->h;
 
 	if (h==0) h = asset_rects[asset].h;
+
+	if (THEME_customPills() && (asset == ASSET_WHITE_PILL || asset == ASSET_DARK_GRAY_PILL || asset == ASSET_BLACK_PILL)) {
+		if (w < h) w = h;
+		SDL_FillRect(dst, &(SDL_Rect){x, y, w, h}, asset_rgbs[asset]);
+		return;
+	}
 	
 	int r = h / 2;
 	if (w < h) w = h;
@@ -612,33 +918,45 @@ void GFX_blitButton(char* hint, char*button, SDL_Surface* dst, SDL_Rect* dst_rec
 	int ox = 0;
 	
 	int special_case = !strcmp(button,BRIGHTNESS_BUTTON_LABEL); // TODO: oof
+	int psx_chrome = THEME_pillStyle() == THEME_PILL_PSX;
 	
 	// button
 	if (strlen(button)==1) {
 		GFX_blitAsset(ASSET_BUTTON, NULL, dst, dst_rect);
 
 		// label
-		text = TTF_RenderUTF8_Blended(font.medium, button, COLOR_BUTTON_TEXT);
+		SDL_Color glyph = THEME_customPills()
+			? (SDL_Color){0x11, 0x11, 0x11, 0xff}
+			: COLOR_BUTTON_TEXT;
+		text = TTF_RenderUTF8_Blended(font.medium, button, glyph);
 		SDL_BlitSurface(text, NULL, dst, &(SDL_Rect){dst_rect->x+(SCALE1(BUTTON_SIZE)-text->w)/2,dst_rect->y+(SCALE1(BUTTON_SIZE)-text->h)/2});
 		ox += SCALE1(BUTTON_SIZE);
 		SDL_FreeSurface(text);
 	}
 	else {
-		text = TTF_RenderUTF8_Blended(special_case ? font.large : font.tiny, button, COLOR_BUTTON_TEXT);
-		GFX_blitPill(ASSET_BUTTON, dst, &(SDL_Rect){dst_rect->x,dst_rect->y,SCALE1(BUTTON_SIZE)/2+text->w,SCALE1(BUTTON_SIZE)});
-		ox += SCALE1(BUTTON_SIZE)/4;
+		// ASSET_BUTTON siempre es un pill blanco: si el tema es claro/oscuro
+		// y COLOR_BUTTON_TEXT también queda claro, el texto se volvía
+		// ilegible (blanco sobre blanco). Igual que el glifo de 1 letra de
+		// arriba, forzamos texto oscuro cuando se dibuja ese pill.
+		SDL_Color btn_color = (!psx_chrome && THEME_customPills())
+			? (SDL_Color){0x11, 0x11, 0x11, 0xff}
+			: COLOR_BUTTON_TEXT;
+		text = TTF_RenderUTF8_Blended(special_case ? font.large : font.tiny, button, btn_color);
+		if (!psx_chrome)
+			GFX_blitPill(ASSET_BUTTON, dst, &(SDL_Rect){dst_rect->x,dst_rect->y,SCALE1(BUTTON_SIZE)/2+text->w,SCALE1(BUTTON_SIZE)});
+		ox += psx_chrome ? 0 : SCALE1(BUTTON_SIZE)/4;
 		
 		int oy = special_case ? SCALE1(-2) : 0;
 		SDL_BlitSurface(text, NULL, dst, &(SDL_Rect){ox+dst_rect->x,oy+dst_rect->y+(SCALE1(BUTTON_SIZE)-text->h)/2,text->w,text->h});
 		ox += text->w;
-		ox += SCALE1(BUTTON_SIZE)/4;
+		ox += psx_chrome ? SCALE1(BUTTON_MARGIN) : SCALE1(BUTTON_SIZE)/4;
 		SDL_FreeSurface(text);
 	}
 	
 	ox += SCALE1(BUTTON_MARGIN);
 
 	// hint text
-	text = TTF_RenderUTF8_Blended(font.small, hint, COLOR_WHITE);
+	text = TTF_RenderUTF8_Blended(font.small, hint, COLOR_FOOTER_TEXT);
 	SDL_BlitSurface(text, NULL, dst, &(SDL_Rect){ox+dst_rect->x,dst_rect->y+(SCALE1(BUTTON_SIZE)-text->h)/2,text->w,text->h});
 	SDL_FreeSurface(text);
 }
@@ -693,6 +1011,7 @@ int GFX_blitHardwareGroup(SDL_Surface* dst, int show_setting) {
 	int ox;
 	int oy;
 	int ow = 0;
+	int bar_h = THEME_listRowH();
 	
 	int setting_value;
 	int setting_min;
@@ -700,15 +1019,21 @@ int GFX_blitHardwareGroup(SDL_Surface* dst, int show_setting) {
 	
 	if (show_setting && !GetHDMI()) {
 		ow = SCALE1(PILL_SIZE + SETTINGS_WIDTH + 10 + 4);
-		ox = dst->w - SCALE1(PADDING) - ow;
-		oy = SCALE1(PADDING);
-		GFX_blitPill(gfx.mode==MODE_MAIN ? ASSET_DARK_GRAY_PILL : ASSET_BLACK_PILL, dst, &(SDL_Rect){
-			ox,
-			oy,
-			ow,
-			SCALE1(PILL_SIZE)
-		});
-		
+		oy = THEME_marginTop();
+		if (THEME_pillStyle() == THEME_PILL_PSX) {
+			ow = THEME_alignWidth(ow);
+			ox = THEME_alignRight(dst->w - SCALE1(PADDING) - ow);
+			GFX_blitPsxChromeBar(dst, &(SDL_Rect){ox, oy, ow, bar_h});
+		} else {
+			ox = dst->w - SCALE1(PADDING) - ow;
+			GFX_blitPill(gfx.mode==MODE_MAIN ? ASSET_DARK_GRAY_PILL : ASSET_BLACK_PILL, dst, &(SDL_Rect){
+				ox,
+				oy,
+				ow,
+				bar_h
+			});
+		}
+
 		if (show_setting==1) {
 			setting_value = GetBrightness();
 			setting_min = BRIGHTNESS_MIN;
@@ -747,6 +1072,7 @@ int GFX_blitHardwareGroup(SDL_Surface* dst, int show_setting) {
 	else {
 		// TODO: handle wifi
 		int show_wifi = PLAT_isOnline(); // NOOOOO! not every frame!
+		int psx_chrome = THEME_pillStyle() == THEME_PILL_PSX;
 
 		int ww = SCALE1(PILL_SIZE-3);
 		ow = SCALE1(PILL_SIZE);
@@ -755,34 +1081,56 @@ int GFX_blitHardwareGroup(SDL_Surface* dst, int show_setting) {
 		// porcentaje de batería a la izquierda del icono
 		char battery_text[8];
 		sprintf(battery_text, "%i%%", pwr.charge);
-		SDL_Surface* battery_txt = TTF_RenderUTF8_Blended(font.tiny, battery_text, COLOR_WHITE);
-		int bw = battery_txt ? battery_txt->w + SCALE1(6) : 0;
+		SDL_Surface* battery_txt = NULL;
+		int btw = 0, bth = 0;
+		if (psx_chrome)
+			TTF_SizeUTF8(font.tiny, battery_text, &btw, &bth);
+		else {
+			battery_txt = TTF_RenderUTF8_Blended(font.tiny, battery_text, COLOR_WHITE);
+			btw = battery_txt ? battery_txt->w : 0;
+		}
+		int bw = btw ? btw + SCALE1(6) : 0;
 		ow += bw;
 
-		ox = dst->w - SCALE1(PADDING) - ow;
-		oy = SCALE1(PADDING);
-		GFX_blitPill(gfx.mode==MODE_MAIN ? ASSET_DARK_GRAY_PILL : ASSET_BLACK_PILL, dst, &(SDL_Rect){
-			ox,
-			oy,
-			ow,
-			SCALE1(PILL_SIZE)
-		});
+		oy = THEME_marginTop();
+		if (psx_chrome) {
+			// pastilla plana de un solo color, como "MEMORY CARD" / "CD PLAYER"
+			// del BIOS real, alineada a toda celda de la retícula.
+			ow = THEME_alignWidth(ow);
+			ox = THEME_alignRight(dst->w - SCALE1(PADDING) - ow);
+			SDL_FillRect(dst, &(SDL_Rect){ox, oy, ow, bar_h}, asset_rgbs[ASSET_WHITE_PILL]);
+		} else {
+			ox = dst->w - SCALE1(PADDING) - ow;
+			GFX_blitPill(gfx.mode==MODE_MAIN ? ASSET_DARK_GRAY_PILL : ASSET_BLACK_PILL, dst, &(SDL_Rect){
+				ox,
+				oy,
+				ow,
+				bar_h
+			});
+		}
 		if (show_wifi) {
 			SDL_Rect rect = asset_rects[ASSET_WIFI];
 			int x = ox;
 			int y = oy;
-			x += (SCALE1(PILL_SIZE) - rect.w) / 2;
-			y += (SCALE1(PILL_SIZE) - rect.h) / 2;
-			
+			x += (bar_h - rect.w) / 2;
+			y += (bar_h - rect.h) / 2;
+
 			GFX_blitAsset(ASSET_WIFI, NULL, dst, &(SDL_Rect){x,y});
 			ox += ww;
 		}
-		if (battery_txt) {
-			SDL_BlitSurface(battery_txt, NULL, dst, &(SDL_Rect){
-				ox + SCALE1(6),
-				oy + (SCALE1(PILL_SIZE) - battery_txt->h) / 2
-			});
-			SDL_FreeSurface(battery_txt);
+		if (bw) {
+			if (psx_chrome) {
+				GFX_blitPsxMenuText(font.tiny, battery_text, dst, &(SDL_Rect){
+					ox + SCALE1(6),
+					oy + (bar_h - bth) / 2
+				}, COLOR_WHITE);
+			} else if (battery_txt) {
+				SDL_BlitSurface(battery_txt, NULL, dst, &(SDL_Rect){
+					ox + SCALE1(6),
+					oy + (bar_h - battery_txt->h) / 2
+				});
+				SDL_FreeSurface(battery_txt);
+			}
 			ox += bw;
 		}
 		GFX_blitBattery(dst, &(SDL_Rect){ox,oy});
@@ -806,6 +1154,7 @@ int GFX_blitButtonGroup(char** pairs, int primary, SDL_Surface* dst, int align_r
 	int ox;
 	int oy;
 	int ow;
+	int bar_h = THEME_listRowH();
 	char* hint;
 	char* button;
 
@@ -817,8 +1166,8 @@ int GFX_blitButtonGroup(char** pairs, int primary, SDL_Surface* dst, int align_r
 	int w = 0; // individual button dimension
 	int h = 0; // hints index
 	ow = 0; // full pill width
-	ox = align_right ? dst->w - SCALE1(PADDING) : SCALE1(PADDING);
-	oy = dst->h - SCALE1(PADDING + PILL_SIZE);
+	ox = align_right ? dst->w - SCALE1(PADDING) : THEME_listX();
+	oy = THEME_footerY(dst->h);
 	
 	for (int i=0; i<2; i++) {
 		if (!pairs[i*2]) break;
@@ -835,13 +1184,22 @@ int GFX_blitButtonGroup(char** pairs, int primary, SDL_Surface* dst, int align_r
 	}
 	
 	ow += SCALE1(BUTTON_MARGIN);
-	if (align_right) ox -= ow;
-	GFX_blitPill(gfx.mode==MODE_MAIN ? ASSET_DARK_GRAY_PILL : ASSET_BLACK_PILL, dst, &(SDL_Rect){
-		ox,
-		oy,
-		ow,
-		SCALE1(PILL_SIZE)
-	});
+	if (align_right) {
+		if (THEME_pillStyle() == THEME_PILL_PSX)
+			ox = THEME_alignRight(dst->w - SCALE1(PADDING) - ow);
+		else
+			ox -= ow;
+	}
+	if (THEME_pillStyle() == THEME_PILL_PSX) {
+		GFX_blitPsxChromeBar(dst, &(SDL_Rect){ox, oy, ow, bar_h});
+	} else {
+		GFX_blitPill(gfx.mode==MODE_MAIN ? ASSET_DARK_GRAY_PILL : ASSET_BLACK_PILL, dst, &(SDL_Rect){
+			ox,
+			oy,
+			ow,
+			bar_h
+		});
+	}
 	
 	ox += SCALE1(BUTTON_MARGIN);
 	oy += SCALE1(BUTTON_MARGIN);
@@ -1646,9 +2004,11 @@ void PWR_powerOff(void) {
 		else msg = exists(AUTO_RESUME_PATH) ? "Quicksave created,\npower off now" : "Power off now";
 		
 		// LOG_info("PWR_powerOff %s (%ix%i)\n", gfx.screen, gfx.screen->w, gfx.screen->h);
-		
+
 		// TODO: for some reason screen's dimensions end up being 0x0 in GFX_blitMessage...
 		PLAT_clearVideo(gfx.screen);
+		if (THEME_pillStyle() == THEME_PILL_PSX && THEME_hasBackdrop() && !GetHDMI())
+			THEME_blitBackground(gfx.screen);
 		GFX_blitMessage(font.large, msg, gfx.screen,&(SDL_Rect){0,0,gfx.screen->w,gfx.screen->h}); //, NULL);
 		GFX_flip(gfx.screen);
 		PLAT_powerOff();

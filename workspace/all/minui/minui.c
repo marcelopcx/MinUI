@@ -9,6 +9,7 @@
 
 #include "defines.h"
 #include "api.h"
+#include "theme.h"
 #include "utils.h"
 
 ///////////////////////////////////////
@@ -1075,6 +1076,7 @@ static int autoResume(void) {
 	char cmd[256];
 	sprintf(cmd, "'%s' '%s'", escapeSingleQuotes(emu_path), escapeSingleQuotes(sd_path));
 	putInt(RESUME_SLOT_PATH, AUTO_RESUME_SLOT);
+	unlink(NORMAL_LAUNCH_PATH);
 	queueNext(cmd);
 	return 1;
 }
@@ -1137,7 +1139,13 @@ static void openRom(char* path, char* last) {
 			}
 		}
 	}
-	else putInt(RESUME_SLOT_PATH,8); // resume hidden default state
+	else {
+		putInt(RESUME_SLOT_PATH,8); // resume hidden default state
+		// apertura normal (no SEGUIR) con un tema que trae animación de arranque: minarch la
+		// muestra en lugar de la cortinilla de carga (y los launch.sh no ponen cargando.png)
+		if (THEME_hasBootAnim()) putInt(NORMAL_LAUNCH_PATH,1);
+		else unlink(NORMAL_LAUNCH_PATH);
+	}
 	
 	char emu_path[256];
 	getEmuPath(emu_name, emu_path);
@@ -1313,6 +1321,77 @@ static void Menu_quit(void) {
 
 ///////////////////////////////////////
 
+/* Cuadrícula de iconos PS1 (estilo tarjeta de memoria): una celda por
+   entrada, con la miniatura real (Roms/<sistema>/.res/<nombre>.png) si
+   existe, o un ícono de respaldo con color + inicial si no. */
+static void GFX_blitPsxGridIcon(SDL_Surface* dst, SDL_Rect* cell, Entry* entry, int selected) {
+	Uint32 yellow = SDL_MapRGB(dst->format, 0xf0, 0xd0, 0x30);
+	Uint32 black = SDL_MapRGB(dst->format, 0x10, 0x10, 0x14);
+	int border = selected ? SCALE1(2) : 0;
+	if (selected) SDL_FillRect(dst, cell, yellow);
+	SDL_Rect inner = {cell->x + border, cell->y + border, cell->w - border * 2, cell->h - border * 2};
+	SDL_FillRect(dst, &inner, black);
+
+	char res_path[MAX_PATH];
+	char res_root[MAX_PATH];
+	strcpy(res_root, entry->path);
+	char tmp_path[MAX_PATH];
+	strcpy(tmp_path, entry->path);
+	char* res_name = strrchr(tmp_path, '/') + 1;
+	char* tmp = strrchr(res_root, '/');
+	if (tmp) tmp[0] = '\0';
+	sprintf(res_path, "%s/.res/%s.png", res_root, res_name);
+
+	SDL_Surface* thumb = exists(res_path) ? IMG_Load(res_path) : NULL;
+	if (thumb) {
+		int pad = SCALE1(3);
+		SDL_Rect fit = {inner.x + pad, inner.y + pad, inner.w - pad * 2, inner.h - pad * 2};
+		float sx = (float)fit.w / thumb->w;
+		float sy = (float)fit.h / thumb->h;
+		float s = sx < sy ? sx : sy;
+		int dw = (int)(thumb->w * s);
+		int dh = (int)(thumb->h * s);
+		if (dw < 1) dw = 1;
+		if (dh < 1) dh = 1;
+		SDL_Rect dr = {fit.x + (fit.w - dw) / 2, fit.y + (fit.h - dh) / 2, dw, dh};
+		SDL_SoftStretch(thumb, NULL, dst, &dr);
+		SDL_FreeSurface(thumb);
+		return;
+	}
+
+	static const uint32_t palette[] = {0xd04030, 0x3080c0, 0x40a050, 0xc0a030, 0x9050b0, 0x30a0a0};
+	unsigned hash = 0;
+	for (const char* p = entry->name; *p; p++) hash = hash * 31 + (unsigned char)*p;
+	uint32_t rgb = palette[hash % 6];
+	Uint32 bg = SDL_MapRGB(dst->format, (rgb >> 16) & 0xff, (rgb >> 8) & 0xff, rgb & 0xff);
+	int pad = SCALE1(5);
+	SDL_Rect box = {inner.x + pad, inner.y + pad, inner.w - pad * 2, inner.h - pad * 2};
+	SDL_FillRect(dst, &box, bg);
+
+	char initial[2] = {0, 0};
+	for (const char* p = entry->name; *p; p++) {
+		if (isalnum((unsigned char)*p)) { initial[0] = toupper((unsigned char)*p); break; }
+	}
+	if (initial[0]) {
+		SDL_Color white = {0xff, 0xff, 0xff, 0xff};
+		SDL_Color shadow = {0x10, 0x10, 0x10, 0xff};
+		int tw = 0, th = 0;
+		TTF_SizeUTF8(font.large, initial, &tw, &th);
+		int tx = box.x + (box.w - tw) / 2;
+		int ty = box.y + (box.h - th) / 2;
+		SDL_Surface* t = TTF_RenderUTF8_Blended(font.large, initial, shadow);
+		if (t) {
+			SDL_BlitSurface(t, NULL, dst, &(SDL_Rect){tx + SCALE1(1), ty + SCALE1(1)});
+			SDL_FreeSurface(t);
+		}
+		t = TTF_RenderUTF8_Blended(font.large, initial, white);
+		if (t) {
+			SDL_BlitSurface(t, NULL, dst, &(SDL_Rect){tx, ty});
+			SDL_FreeSurface(t);
+		}
+	}
+}
+
 int main (int argc, char *argv[]) {
 	// LOG_info("time from launch to:\n");
 	// unsigned long main_begin = SDL_GetTicks();
@@ -1328,6 +1407,7 @@ int main (int argc, char *argv[]) {
 	SDL_Surface* screen = GFX_init(MODE_MAIN);
 	// LOG_info("- graphics init: %lu\n", SDL_GetTicks() - main_begin);
 	
+	THEME_musicStart(); // música de fondo si el tema trae (PS2)
 	PAD_init();
 	// LOG_info("- input init: %lu\n", SDL_GetTicks() - main_begin);
 	
@@ -1359,6 +1439,28 @@ int main (int argc, char *argv[]) {
 			
 		int selected = top->selected;
 		int total = top->entries->count;
+
+		// cuadrícula de iconos PS1: solo para listas de juegos (ENTRY_ROM),
+		// no para la lista de consolas/carpetas, que sigue siendo de botones.
+		// cols = columnas que caben dejando la columna de estado/atajos;
+		// una fila menos para la barra de nombre.
+		int list_kind = THEME_listRowKind();
+		int is_rom_grid = list_kind == THEME_LIST_PLAYSTATION && total > 0
+			&& ((Entry*)top->entries->items[0])->type == ENTRY_ROM;
+		int grid_cols = 1, grid_rows = MAIN_ROW_COUNT;
+		if (is_rom_grid) {
+			int cell = THEME_gridCell();
+			if (cell <= 0) cell = SCALE1(PILL_SIZE);
+			grid_cols = (screen->w - SCALE1(PADDING) * 2) / cell - 3;
+			if (grid_cols < 1) grid_cols = 1;
+			grid_rows = MAIN_ROW_COUNT > 1 ? MAIN_ROW_COUNT - 1 : 1;
+		}
+		int window_cap = is_rom_grid ? grid_rows * grid_cols : MAIN_ROW_COUNT;
+		int major_step = is_rom_grid ? grid_cols : MAIN_ROW_COUNT;
+		int minor_dec_btn = is_rom_grid ? BTN_LEFT : BTN_UP;
+		int minor_inc_btn = is_rom_grid ? BTN_RIGHT : BTN_DOWN;
+		int major_dec_btn = is_rom_grid ? BTN_UP : BTN_LEFT;
+		int major_inc_btn = is_rom_grid ? BTN_DOWN : BTN_RIGHT;
 		
 		PWR_update(&dirty, &show_setting, NULL, NULL);
 		
@@ -1380,17 +1482,17 @@ int main (int argc, char *argv[]) {
 				if (!HAS_POWER_BUTTON && !simple_mode) PWR_enableSleep();
 			}
 			else if (total>0) {
-				if (PAD_justRepeated(BTN_UP)) {
-					if (selected==0 && !PAD_justPressed(BTN_UP)) {
+				if (PAD_justRepeated(minor_dec_btn)) {
+					if (selected==0 && !PAD_justPressed(minor_dec_btn)) {
 						// stop at top
 					}
 					else {
 						selected -= 1;
 						if (selected<0) {
 							selected = total-1;
-							int start = total - MAIN_ROW_COUNT;
+							int start = total - window_cap;
 							top->start = (start<0) ? 0 : start;
-							top->end = total; 
+							top->end = total;
 						}
 						else if (selected<top->start) {
 							top->start -= 1;
@@ -1398,8 +1500,8 @@ int main (int argc, char *argv[]) {
 						}
 					}
 				}
-				else if (PAD_justRepeated(BTN_DOWN)) {
-					if (selected==total-1 && !PAD_justPressed(BTN_DOWN)) {
+				else if (PAD_justRepeated(minor_inc_btn)) {
+					if (selected==total-1 && !PAD_justPressed(minor_inc_btn)) {
 						// stop at bottom
 					}
 					else {
@@ -1407,7 +1509,7 @@ int main (int argc, char *argv[]) {
 						if (selected>=total) {
 							selected = 0;
 							top->start = 0;
-							top->end = (total<MAIN_ROW_COUNT) ? total : MAIN_ROW_COUNT;
+							top->end = (total<window_cap) ? total : window_cap;
 						}
 						else if (selected>=top->end) {
 							top->start += 1;
@@ -1415,58 +1517,58 @@ int main (int argc, char *argv[]) {
 						}
 					}
 				}
-				if (PAD_justRepeated(BTN_LEFT)) {
-					selected -= MAIN_ROW_COUNT;
+				if (PAD_justRepeated(major_dec_btn)) {
+					selected -= major_step;
 					if (selected<0) {
 						selected = 0;
 						top->start = 0;
-						top->end = (total<MAIN_ROW_COUNT) ? total : MAIN_ROW_COUNT;
+						top->end = (total<window_cap) ? total : window_cap;
 					}
 					else if (selected<top->start) {
-						top->start -= MAIN_ROW_COUNT;
+						top->start -= major_step;
 						if (top->start<0) top->start = 0;
-						top->end = top->start + MAIN_ROW_COUNT;
+						top->end = top->start + window_cap;
 					}
 				}
-				else if (PAD_justRepeated(BTN_RIGHT)) {
-					selected += MAIN_ROW_COUNT;
+				else if (PAD_justRepeated(major_inc_btn)) {
+					selected += major_step;
 					if (selected>=total) {
 						selected = total-1;
-						int start = total - MAIN_ROW_COUNT;
+						int start = total - window_cap;
 						top->start = (start<0) ? 0 : start;
 						top->end = total;
 					}
 					else if (selected>=top->end) {
-						top->end += MAIN_ROW_COUNT;
+						top->end += major_step;
 						if (top->end>total) top->end = total;
-						top->start = top->end - MAIN_ROW_COUNT;
+						top->start = top->end - window_cap;
 					}
 				}
 			}
 		
-			if (PAD_justRepeated(BTN_L1) && !PAD_isPressed(BTN_R1) && !PWR_ignoreSettingInput(BTN_L1, show_setting)) { // previous alpha
+			if (total>0 && PAD_justRepeated(BTN_L1) && !PAD_isPressed(BTN_R1) && !PWR_ignoreSettingInput(BTN_L1, show_setting)) { // previous alpha
 				Entry* entry = top->entries->items[selected];
 				int i = entry->alpha-1;
 				if (i>=0) {
 					selected = top->alphas->items[i];
-					if (total>MAIN_ROW_COUNT) {
+					if (total>window_cap) {
 						top->start = selected;
-						top->end = top->start + MAIN_ROW_COUNT;
+						top->end = top->start + window_cap;
 						if (top->end>total) top->end = total;
-						top->start = top->end - MAIN_ROW_COUNT;
+						top->start = top->end - window_cap;
 					}
 				}
 			}
-			else if (PAD_justRepeated(BTN_R1) && !PAD_isPressed(BTN_L1) && !PWR_ignoreSettingInput(BTN_R1, show_setting)) { // next alpha
+			else if (total>0 && PAD_justRepeated(BTN_R1) && !PAD_isPressed(BTN_L1) && !PWR_ignoreSettingInput(BTN_R1, show_setting)) { // next alpha
 				Entry* entry = top->entries->items[selected];
 				int i = entry->alpha+1;
 				if (i<top->alphas->count) {
 					selected = top->alphas->items[i];
-					if (total>MAIN_ROW_COUNT) {
+					if (total>window_cap) {
 						top->start = selected;
-						top->end = top->start + MAIN_ROW_COUNT;
+						top->end = top->start + window_cap;
 						if (top->end>total) top->end = total;
-						top->start = top->end - MAIN_ROW_COUNT;
+						top->start = top->end - window_cap;
 					}
 				}
 			}
@@ -1500,7 +1602,7 @@ int main (int argc, char *argv[]) {
 		}
 		
 		if (dirty) {
-			GFX_clear(screen);
+			GFX_clearThemed(screen);
 			
 			int ox;
 			int oy;
@@ -1508,7 +1610,7 @@ int main (int argc, char *argv[]) {
 			// simple thumbnail support a thumbnail for a file or folder named NAME.EXT needs a corresponding /.res/NAME.EXT.png 
 			// that is no bigger than platform FIXED_HEIGHT x FIXED_HEIGHT
 			int had_thumb = 0;
-			if (!show_version && total>0) {
+			if (!show_version && total>0 && !is_rom_grid) {
 				Entry* entry = top->entries->items[top->selected];
 				char res_path[MAX_PATH];
 				
@@ -1523,14 +1625,20 @@ int main (int argc, char *argv[]) {
 				tmp[0] = '\0';
 				
 				sprintf(res_path, "%s/.res/%s.png", res_root, res_name);
-				LOG_info("res_path: %s\n", res_path);
-				if (exists(res_path)) {
+				// la miniatura se cachea: con fondo animado se redibuja ~24 veces por
+				// segundo y no debe leer del disco en cada fotograma.
+				static char thumb_cache_path[MAX_PATH] = "";
+				static SDL_Surface* thumb_cache = NULL;
+				if (strcmp(thumb_cache_path, res_path)!=0) {
+					if (thumb_cache) { SDL_FreeSurface(thumb_cache); thumb_cache = NULL; }
+					strcpy(thumb_cache_path, res_path);
+					if (exists(res_path)) thumb_cache = IMG_Load(res_path);
+				}
+				if (thumb_cache) {
 					had_thumb = 1;
-					SDL_Surface* thumb = IMG_Load(res_path);
-					ox = MAX(FIXED_WIDTH - FIXED_HEIGHT, (FIXED_WIDTH - thumb->w));
-					oy = (FIXED_HEIGHT - thumb->h) / 2;
-					SDL_BlitSurface(thumb, NULL, screen, &(SDL_Rect){ox,oy});
-					SDL_FreeSurface(thumb);
+					ox = MAX(FIXED_WIDTH - FIXED_HEIGHT, (FIXED_WIDTH - thumb_cache->w));
+					oy = (FIXED_HEIGHT - thumb_cache->h) / 2;
+					SDL_BlitSurface(thumb_cache, NULL, screen, &(SDL_Rect){ox,oy});
 				}
 			}
 			
@@ -1600,32 +1708,140 @@ int main (int argc, char *argv[]) {
 				
 				GFX_blitButtonGroup((char*[]){ "B","ATRÁS",  NULL }, 0, screen, 1);
 			}
+			else if (is_rom_grid) {
+				// cuadrícula de iconos estilo tarjeta de memoria PS1
+				if (total>0) {
+					int cell = THEME_gridCell();
+					if (cell <= 0) cell = SCALE1(PILL_SIZE);
+					int gx0 = SCALE1(PADDING);
+					int gy0 = THEME_marginTop();
+
+					for (int i = top->start, idx = 0; i < top->end; i++, idx++) {
+						int col = idx % grid_cols;
+						int row = idx / grid_cols;
+						if (row >= grid_rows) break;
+						Entry* entry = top->entries->items[i];
+						SDL_Rect box = {gx0 + col * cell, gy0 + row * cell, cell, cell};
+						GFX_blitPsxGridIcon(screen, &box, entry, i == top->selected);
+					}
+
+					// barra de nombre del juego seleccionado, debajo de la cuadrícula
+					int bar_y = gy0 + grid_rows * cell;
+					int bar_w = grid_cols * cell;
+					Uint32 black = SDL_MapRGB(screen->format, 0x10, 0x10, 0x14);
+					SDL_FillRect(screen, &(SDL_Rect){gx0, bar_y, bar_w, cell}, black);
+
+					Entry* sel_entry = top->entries->items[top->selected];
+					char* sel_name = sel_entry->unique ? sel_entry->unique : sel_entry->name;
+					trimSortingMeta(&sel_name);
+					char display_name[256];
+					GFX_truncateText(font.large, sel_name, display_name, bar_w - SCALE1(BUTTON_PADDING * 2), 0);
+					GFX_blitPsxMenuText(font.large, display_name, screen, &(SDL_Rect){
+						gx0 + SCALE1(BUTTON_PADDING), bar_y + SCALE1(4)
+					}, COLOR_WHITE);
+				}
+				else {
+					// TODO: for some reason screen's dimensions end up being 0x0 in GFX_blitMessage...
+					GFX_blitMessage(font.large, "Carpeta vacía", screen, &(SDL_Rect){0,0,screen->w,screen->h}); //, NULL);
+				}
+			}
 			else {
 				// list
 				if (total>0) {
 					int selected_row = top->selected - top->start;
+					int uniform_row_w = 0;
+					int pad2 = SCALE1(BUTTON_PADDING * 2);
+					int list_kind = THEME_listRowKind();
+					int uniform = list_kind != THEME_LIST_NONE;
+					int list_x = uniform ? SCALE1(PADDING) : THEME_listX();
+					int row_h = uniform ? SCALE1(PILL_SIZE) : THEME_listRowH();
+					if (uniform || THEME_pillStyle() == THEME_PILL_PSX) {
+						int cap = screen->w - list_x - SCALE1(PADDING);
+						if (ow > 0) {
+							// deja una celda completa de separación antes de la
+							// columna de estado/atajos, para que no queden pegados.
+							int gap = THEME_pillStyle() == THEME_PILL_PSX && THEME_gridCell() > 0
+								? THEME_gridCell() : SCALE1(PADDING);
+							cap -= ow + gap;
+						}
+						if (THEME_pillStyle() == THEME_PILL_PSX) {
+							// los botones ocupan todo el ancho disponible (como en el
+							// menú real de PS1), alineados a la retícula del fondo.
+							uniform_row_w = THEME_alignRight(list_x + cap) - list_x;
+						} else {
+							for (int i = 0; i < total; i++) {
+								Entry* e = top->entries->items[i];
+								char* nm = e->name;
+								char* uq = e->unique;
+								trimSortingMeta(&nm);
+								if (uq)
+									trimSortingMeta(&uq);
+								int w = GFX_rowLabelWidth(font.large, uq ? uq : nm, pad2) + 4;
+								if (w > uniform_row_w)
+									uniform_row_w = w;
+							}
+							if (uniform_row_w > cap)
+								uniform_row_w = cap;
+						}
+					}
 					for (int i=top->start,j=0; i<top->end; i++,j++) {
 						Entry* entry = top->entries->items[i];
 						char* entry_name = entry->name;
 						char* entry_unique = entry->unique;
 						int available_width = (had_thumb && j!=selected_row ? ox : screen->w) - SCALE1(PADDING * 2);
 						if (i==top->start && !(had_thumb && j!=selected_row)) available_width -= ow; // 
-					
+						
 						SDL_Color text_color = COLOR_WHITE;
 					
 						trimSortingMeta(&entry_name);
 					
 						char display_name[256];
 						int text_width = GFX_truncateText(font.large, entry_unique ? entry_unique : entry_name, display_name, available_width, SCALE1(BUTTON_PADDING*2));
-						int max_width = MIN(available_width, text_width);
-						if (j==selected_row) {
+						int row_y = uniform ? SCALE1(PADDING + j * PILL_SIZE) : THEME_listY(j);
+						int max_width = (uniform || THEME_pillStyle() == THEME_PILL_PSX)
+							? uniform_row_w
+							: MIN(available_width, text_width);
+						if (list_kind == THEME_LIST_PLAYSTATION) {
+							GFX_blitPlayStationListRow(screen, &(SDL_Rect){
+								list_x, row_y, max_width, row_h
+							}, j == selected_row);
+							text_color = COLOR_WHITE;
+						}
+						else if (list_kind == THEME_LIST_DS) {
+							GFX_blitDsListRow(screen, &(SDL_Rect){
+								list_x, row_y, max_width, row_h
+							}, j == selected_row);
+							text_color = COLOR_DARK_TEXT;
+						}
+						else if (THEME_pillStyle() == THEME_PILL_PSX) {
+							GFX_blitRowPill(screen, &(SDL_Rect){
+								list_x, row_y, max_width, row_h
+							}, j == selected_row);
+							text_color = COLOR_WHITE;
+						}
+						else if (THEME_pillStyle() == THEME_PILL_TEXT) {
+							// sin pastilla ni contorno nunca: el seleccionado
+							// solo ilumina (cambia de color), el resto queda
+							// en el tono grisáceo de color_text_dim.
+							text_color = (j == selected_row) ? COLOR_ACCENT : COLOR_DARK_TEXT;
+						}
+						else if (j==selected_row) {
 							GFX_blitPill(ASSET_WHITE_PILL, screen, &(SDL_Rect){
 								SCALE1(PADDING),
 								SCALE1(PADDING+(j*PILL_SIZE)),
 								max_width,
 								SCALE1(PILL_SIZE)
 							});
-							text_color = COLOR_BLACK;
+							text_color = COLOR_ON_PILL;
+						}
+						else if (THEME_hasBackdrop()) {
+							GFX_blitRowPill(screen, &(SDL_Rect){
+								SCALE1(PADDING),
+								SCALE1(PADDING+(j*PILL_SIZE)),
+								max_width,
+								SCALE1(PILL_SIZE)
+							}, 0);
+							text_color = COLOR_WHITE;
 						}
 						else if (entry->unique) {
 							trimSortingMeta(&entry_unique);
@@ -1645,17 +1861,31 @@ int main (int argc, char *argv[]) {
 						
 							GFX_truncateText(font.large, entry_name, display_name, available_width, SCALE1(BUTTON_PADDING*2));
 						}
-						SDL_Surface* text = TTF_RenderUTF8_Blended(font.large, display_name, text_color);
-						SDL_BlitSurface(text, &(SDL_Rect){
+						SDL_Rect text_at = {
+							list_x + SCALE1(BUTTON_PADDING),
+							row_y + SCALE1(4),
 							0,
-							0,
-							max_width-SCALE1(BUTTON_PADDING*2),
-							text->h
-						}, screen, &(SDL_Rect){
-							SCALE1(PADDING+BUTTON_PADDING),
-							SCALE1(PADDING+(j*PILL_SIZE)+4)
-						});
-						SDL_FreeSurface(text);
+							0
+						};
+						if (list_kind == THEME_LIST_PLAYSTATION || THEME_pillStyle() == THEME_PILL_PSX) {
+							const char* raw = entry_unique ? entry_unique : entry_name;
+							GFX_blitPsxMenuTextInButton(font.large, raw, screen,
+								&(SDL_Rect){list_x, row_y, max_width, row_h}, j == selected_row);
+						}
+						else if (list_kind == THEME_LIST_DS) {
+							const char* raw = entry_unique ? entry_unique : entry_name;
+							GFX_blitDsMenuTextInButton(font.large, raw, screen,
+								&(SDL_Rect){list_x, row_y, max_width, row_h}, j == selected_row);
+						} else {
+							SDL_Surface* text = TTF_RenderUTF8_Blended(font.large, display_name, text_color);
+							SDL_BlitSurface(text, &(SDL_Rect){
+								0,
+								0,
+								max_width-SCALE1(BUTTON_PADDING*2),
+								text->h
+							}, screen, &text_at);
+							SDL_FreeSurface(text);
+						}
 					}
 				}
 				else {
@@ -1664,24 +1894,72 @@ int main (int argc, char *argv[]) {
 				}
 			
 				// buttons
-				if (show_setting && !GetHDMI()) GFX_blitHardwareHints(screen, show_setting);
-				else if (can_resume) GFX_blitButtonGroup((char*[]){ "X","SEGUIR",  NULL }, 0, screen, 0);
-				else GFX_blitButtonGroup((char*[]){ 
-					BTN_SLEEP==BTN_POWER?"APAGAR":"MENÚ",
-					BTN_SLEEP==BTN_POWER||simple_mode?"REPOSO":"INFO",  
-					NULL }, 0, screen, 0);
-			
-				if (total==0) {
-					if (stack->count>1) {
-						GFX_blitButtonGroup((char*[]){ "B","ATRÁS",  NULL }, 0, screen, 1);
+				if (show_setting && !GetHDMI()) {
+					GFX_blitHardwareHints(screen, show_setting);
+					if (THEME_pillStyle() == THEME_PILL_PSX) {
+						char* pairs[6];
+						int n = 0;
+						if (total==0) {
+							if (stack->count>1) { pairs[n++] = "B"; pairs[n++] = "ATRÁS"; }
+						} else {
+							if (stack->count>1) {
+								pairs[n++] = "B"; pairs[n++] = "ATRÁS";
+								pairs[n++] = "A"; pairs[n++] = "ABRIR";
+							} else {
+								pairs[n++] = "A"; pairs[n++] = "ABRIR";
+							}
+						}
+						pairs[n] = NULL;
+						if (n > 0) GFX_blitPsxHintStack(screen, pairs);
 					}
-				}
-				else {
-					if (stack->count>1) {
+					else if (total==0) {
+						if (stack->count>1) GFX_blitButtonGroup((char*[]){ "B","ATRÁS",  NULL }, 0, screen, 1);
+					}
+					else if (stack->count>1) {
 						GFX_blitButtonGroup((char*[]){ "B","ATRÁS", "A","ABRIR", NULL }, 1, screen, 1);
 					}
 					else {
 						GFX_blitButtonGroup((char*[]){ "A","ABRIR", NULL }, 0, screen, 1);
+					}
+				}
+				else if (THEME_pillStyle() == THEME_PILL_PSX) {
+					// todos los atajos apilados a la derecha, estilo pastilla
+					// plana de color (MEMORY CARD / CD PLAYER del BIOS real).
+					char* pairs[8];
+					int n = 0;
+					if (can_resume) { pairs[n++] = "X"; pairs[n++] = "SEGUIR"; }
+					if (total==0) {
+						if (stack->count>1) { pairs[n++] = "B"; pairs[n++] = "ATRÁS"; }
+					} else {
+						if (stack->count>1) {
+							pairs[n++] = "B"; pairs[n++] = "ATRÁS";
+							pairs[n++] = "A"; pairs[n++] = "ABRIR";
+						} else {
+							pairs[n++] = "A"; pairs[n++] = "ABRIR";
+						}
+					}
+					pairs[n] = NULL;
+					GFX_blitPsxHintStack(screen, pairs);
+				}
+				else {
+					if (can_resume) GFX_blitButtonGroup((char*[]){ "X","SEGUIR",  NULL }, 0, screen, 0);
+					else GFX_blitButtonGroup((char*[]){
+						BTN_SLEEP==BTN_POWER?"APAGAR":"MENÚ",
+						BTN_SLEEP==BTN_POWER||simple_mode?"REPOSO":"INFO",
+						NULL }, 0, screen, 0);
+
+					if (total==0) {
+						if (stack->count>1) {
+							GFX_blitButtonGroup((char*[]){ "B","ATRÁS",  NULL }, 0, screen, 1);
+						}
+					}
+					else {
+						if (stack->count>1) {
+							GFX_blitButtonGroup((char*[]){ "B","ATRÁS", "A","ABRIR", NULL }, 1, screen, 1);
+						}
+						else {
+							GFX_blitButtonGroup((char*[]){ "A","ABRIR", NULL }, 0, screen, 1);
+						}
 					}
 				}
 			}
@@ -1689,7 +1967,12 @@ int main (int argc, char *argv[]) {
 			GFX_flip(screen);
 			dirty = 0;
 		}
-		else GFX_sync();
+		else {
+			// fondo animado (p. ej. tema PS2): fuerza redibujo cuando
+			// cambia el fotograma, aunque no haya entrada del usuario.
+			if (THEME_bgFrameChanged()) dirty = 1;
+			GFX_sync();
+		}
 		
 		// if (!first_draw) {
 		// 	first_draw = SDL_GetTicks();
@@ -1713,6 +1996,7 @@ int main (int argc, char *argv[]) {
 	
 	if (version) SDL_FreeSurface(version);
 
+	THEME_musicStop();
 	Menu_quit();
 	PWR_quit();
 	PAD_quit();

@@ -1,0 +1,18 @@
+{
+  "name": "Nebula",
+  "author": "Marcelo Perozo",
+  "version": 1,
+  "source": "original",
+  "color_background": "#1a1030",
+  "background_dim": 0,
+  "color_text": "#f0ecff",
+  "color_text_dim": "#a99bc4",
+  "color_pill_selected": "#4de8ff",
+  "color_pill_unselected": "#2a1f45",
+  "color_pill_menu": "#160f2e",
+  "color_button": "#ffffff",
+  "color_bar": "#4de8ff",
+  "color_bar_bg": "#2a1f45",
+  "color_bar_bg_menu": "#160f2e",
+  "background": "background.png"
+}

@@ -21,7 +21,7 @@ SDL?=SDL
 
 TARGET = minarch
 INCDIR = -I. -I./libretro-common/include/ -I../common/ -I../../$(PLATFORM)/platform/
-SOURCE = $(TARGET).c ../common/scaler.c ../common/utils.c ../common/api.c ../../$(PLATFORM)/platform/platform.c
+SOURCE = $(TARGET).c ../common/scaler.c ../common/utils.c ../common/api.c ../common/theme.c ../../$(PLATFORM)/platform/platform.c
 
 # RetroAchievements sin conexión (logros.c) con rcheevos y libchdr compilados dentro
 RCHEEVOS_VERSION = 40d916de00fe757bab40fb4db41a7912193a48e3

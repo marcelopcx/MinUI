@@ -14,7 +14,7 @@
 #define ROOT_SYSTEM_PATH SDCARD_PATH "/.system/"
 #define SYSTEM_PATH SDCARD_PATH "/.system/" PLATFORM
 #define RES_PATH SDCARD_PATH "/.system/res"
-#define FONT_PATH RES_PATH "/BPreplayBold-unhinted.otf"
+#define FONT_DEFAULT RES_PATH "/BPreplayBold-unhinted.otf"
 #define USERDATA_PATH SDCARD_PATH "/.userdata/" PLATFORM
 #define SHARED_USERDATA_PATH SDCARD_PATH "/.userdata/shared"
 #define PAKS_PATH SYSTEM_PATH "/paks"
@@ -24,11 +24,13 @@
 #define AUTO_RESUME_SLOT 9
 
 #define FAUX_RECENT_PATH SDCARD_PATH "/Jugados recientemente"
+#define LOGROS_PATH SHARED_USERDATA_PATH "/.ra"
 #define COLLECTIONS_PATH SDCARD_PATH "/Collections"
 
 #define LAST_PATH "/tmp/last.txt" // transient
 #define CHANGE_DISC_PATH "/tmp/change_disc.txt"
 #define RESUME_SLOT_PATH "/tmp/resume_slot.txt"
+#define NORMAL_LAUNCH_PATH "/tmp/normal_launch.txt" // minui lo crea al abrir un juego sin continuar; minarch lo consume
 #define NOUI_PATH "/tmp/noui"
 
 #define TRIAD_WHITE 		0xff,0xff,0xff
@@ -40,12 +42,20 @@
 #define TRIAD_LIGHT_TEXT 	0xcc,0xcc,0xcc
 #define TRIAD_DARK_TEXT 	0x66,0x66,0x66
 
-#define COLOR_WHITE			(SDL_Color){TRIAD_WHITE}
-#define COLOR_GRAY			(SDL_Color){TRIAD_GRAY}
-#define COLOR_BLACK			(SDL_Color){TRIAD_BLACK}
-#define COLOR_LIGHT_TEXT	(SDL_Color){TRIAD_LIGHT_TEXT}
-#define COLOR_DARK_TEXT		(SDL_Color){TRIAD_DARK_TEXT}
-#define COLOR_BUTTON_TEXT	(SDL_Color){TRIAD_GRAY}
+extern SDL_Color COLOR_WHITE;
+extern SDL_Color COLOR_GRAY;
+extern SDL_Color COLOR_BLACK;
+extern SDL_Color COLOR_LIGHT_TEXT;
+extern SDL_Color COLOR_DARK_TEXT;
+extern SDL_Color COLOR_BUTTON_TEXT;
+extern SDL_Color COLOR_ON_PILL;
+extern SDL_Color COLOR_FOOTER_TEXT;
+extern SDL_Color COLOR_ACCENT;
+
+/* Menú in-game (minarch): legible sobre el juego, independiente del tema */
+#define COLOR_MENU_TEXT      ((SDL_Color){0xff, 0xff, 0xff, 0xff})
+#define COLOR_MENU_TEXT_DIM  ((SDL_Color){0x99, 0x99, 0x99, 0xff})
+#define COLOR_MENU_ON_BTN    ((SDL_Color){0x00, 0x00, 0x00, 0xff})
 
 // all before scale
 #define PILL_SIZE 30

@@ -42,6 +42,11 @@ build:
 	make build -f makefile.toolchain PLATFORM=$(PLATFORM)
 	# ----------------------------------------------------
 
+build-apps:
+	# ----------------------------------------------------
+	make build-apps -f makefile.toolchain PLATFORM=$(PLATFORM)
+	# ----------------------------------------------------
+
 system:
 	make -f ./workspace/$(PLATFORM)/platform/makefile.copy PLATFORM=$(PLATFORM)
 	
@@ -53,6 +58,7 @@ system:
 	cp ./workspace/all/syncsettings/build/$(PLATFORM)/syncsettings.elf ./build/SYSTEM/$(PLATFORM)/bin/
 	cp ./workspace/all/say/build/$(PLATFORM)/say.elf ./build/SYSTEM/$(PLATFORM)/bin/
 	cp ./workspace/all/clock/build/$(PLATFORM)/clock.elf ./build/EXTRAS/Tools/$(PLATFORM)/Clock.pak/
+	cp ./workspace/all/temas/build/$(PLATFORM)/temas.elf ./build/EXTRAS/Tools/$(PLATFORM)/Temas.pak/
 	cp ./workspace/all/minput/build/$(PLATFORM)/minput.elf ./build/EXTRAS/Tools/$(PLATFORM)/Input.pak/
 
 cores: # TODO: can't assume every platform will have the same stock cores (platform should be responsible for copy too)
@@ -160,12 +166,14 @@ package: tidy
 	mv ./build/PAYLOAD/MinUI.zip ./build/BASE
 	
 	# TODO: can I just add everything in BASE to zip?
-	cd ./build/BASE && zip -r ../../releases/$(RELEASE_NAME)-base.zip Bios Roms Saves miyoo miyoo354 trimui rg35xx rg35xxplus gkdpixel miyoo355 magicx miyoo285 em_ui.sh MinUI.zip README.txt
+	cd ./build/BASE && zip -r ../../releases/$(RELEASE_NAME)-base.zip Bios Roms Saves Temas miyoo miyoo354 trimui rg35xx rg35xxplus gkdpixel miyoo355 magicx miyoo285 em_ui.sh MinUI.zip README.txt
 	# herramientas en español: minui las busca en /Herramientas
 	mv ./build/EXTRAS/Tools ./build/EXTRAS/Herramientas
 ifneq (,$(findstring miyoomini, $(PLATFORMS)))
 	# Miyoo Mini: solo Wi-Fi, Archivos y Fecha y hora
-	cd "./build/EXTRAS/Herramientas/miyoomini" && rm -rf ADBD.pak Bootlogo.pak IP.pak "Remove Loading.pak" "Toggle 560p.pak" Input.pak && mv Wi-Fi "1) Wi-Fi" && mv "Batería.pak" "2) Batería.pak" && mv Files.pak "3) Archivos.pak" && mv Clock.pak "4) Fecha y hora.pak"
+	mkdir -p ./build/BASE/Temas
+	cp -R ./skeleton/Temas/* ./build/BASE/Temas/ 2>/dev/null || true
+	cd "./build/EXTRAS/Herramientas/miyoomini" && rm -rf ADBD.pak Bootlogo.pak IP.pak "Remove Loading.pak" "Toggle 560p.pak" Input.pak && mv Wi-Fi "1) Wi-Fi" && mv Temas.pak "2) Temas.pak" && mv "Batería.pak" "3) Batería.pak" && mv Files.pak "4) Archivos.pak" && mv Clock.pak "5) Fecha y hora.pak"
 endif
 	cd ./build/EXTRAS && zip -r ../../releases/$(RELEASE_NAME)-extras.zip Bios Emus Roms Saves Herramientas README.txt
 	echo "$(RELEASE_NAME)" > ./build/latest.txt

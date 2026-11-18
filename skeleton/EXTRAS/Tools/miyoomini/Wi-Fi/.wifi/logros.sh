@@ -13,12 +13,9 @@ RA_UA="MinUI-Logros/1.0 rcheevos/12.2"
 MINARCH=/mnt/SDCARD/.system/miyoomini/bin/minarch.elf
 ZONA_HORARIA=-4 # horas respecto a UTC; la consola guarda la hora local
 
-# Sin hora correcta no se puede conectar por HTTPS (los certificados parecen
-# caducados). Si el reloj se perdió (año 1970), se toma la hora de la cabecera
-# "Date" de la propia web y se guarda en el reloj de la consola.
+# Cada conexión toma la hora de la cabecera Date y la guarda en hora local.
 ajustar_reloj() {
-	[ "$(date +%Y)" -ge 2025 ] && return 0
-	D=$("$WIFI_DIR/curl" -skI -m 15 "$RA_URL" | sed -n 's/^[Dd]ate: *//p' | tr -d '\r')
+	D=$("$WIFI_DIR/curl" -skI -m 15 "$RA_URL" | sed -n 's/^[Dd]ate: *//p' | tr -d '\r' | head -1)
 	[ -n "$D" ] || return 1
 	E=$(date -u -D "%a, %d %b %Y %H:%M:%S GMT" -d "$D" +%s 2>/dev/null) || return 1
 	date -u -s "$(date -u -d "@$((E + ZONA_HORARIA * 3600))" +"%Y-%m-%d %H:%M:%S")" >/dev/null && hwclock -w 2>/dev/null

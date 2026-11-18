@@ -158,6 +158,7 @@ encender() {
 	fi
 
 	paso "conectado: $IP"
+	ajustar_reloj
 	./filebrowser -p 80 -a 0.0.0.0 -r /mnt/SDCARD -d "$WIFI_DIR/filebrowser.db" --noauth >/dev/null 2>&1 &
 
 	# vigilante: si se pierde la conexión 3 minutos seguidos (por ejemplo al salir
@@ -181,35 +182,175 @@ encender() {
 	return 0
 }
 
+# primera línea que no es https (la casa) o la primera https (desde fuera)
+direccion_servidor() {
+	awk -v cual="$1" '
+		/^#/ || NF == 0 { next }
+		/^https:\/\// { if (cual == "https") { print; exit } ; next }
+		{ if (cual == "lan") { print; exit } }
+	' servidor.txt 2>/dev/null | tr -d '\r'
+}
+
+hash_archivo() {
+	if command -v md5sum >/dev/null 2>&1; then
+		md5sum "$1" | awk '{print $1}'
+	elif command -v md5 >/dev/null 2>&1; then
+		md5 -q "$1"
+	fi
+}
+
+# deja la ruta en ASCII para ?ruta= (espacios y paréntesis incluidos)
+codificar() {
+	printf '%s' "$1" | awk 'BEGIN {
+		for (i = 1; i < 256; i++) hex[sprintf("%c", i)] = sprintf("%02X", i)
+	}
+	{
+		n = length($0)
+		for (i = 1; i <= n; i++) {
+			ch = substr($0, i, 1)
+			if (ch ~ /^[A-Za-z0-9._~-]$/) printf "%s", ch
+			else printf "%%%s", hex[ch]
+		}
+	}'
+}
+
+# la consola guarda la hora local en el reloj UTC, y el certificado público
+# queda "todavía no válido". Se pone la hora real solo durante esta conexión.
+HORA_ANTERIOR=""
+poner_hora_real() {
+	D=$("$CURL" -skI -m 15 "$1" | sed -n 's/^[Dd]ate: *//p' | tr -d '\r' | head -1)
+	[ -n "$D" ] || return 1
+	E=$(date -u -D "%a, %d %b %Y %H:%M:%S GMT" -d "$D" +%s 2>/dev/null) || return 1
+	HORA_ANTERIOR=$(date +"%Y-%m-%d %H:%M:%S")
+	date -u -s "$(date -u -d "@$E" +"%Y-%m-%d %H:%M:%S")" >/dev/null
+	paso "reloj temporal para la conexión segura"
+}
+restaurar_hora() {
+	[ -n "$HORA_ANTERIOR" ] || return 0
+	E=$(date -u +%s 2>/dev/null) || E=0
+	ZONA=${ZONA_HORARIA:--4}
+	date -u -s "$(date -u -d "@$((E + ZONA * 3600))" +"%Y-%m-%d %H:%M:%S")" >/dev/null 2>&1
+	hwclock -w 2>/dev/null
+	HORA_ANTERIOR=""
+}
+
+# desde fuera: la consola sube y baja; el servidor no entra a su IP local
+sincronizar_remoto() {
+	URL=${1%/}
+	CLAVE=$(tr -d '\r\n ' < "$WIFI_DIR/sync.clave")
+	CURL="$WIFI_DIR/curl"
+	[ -x "$CURL" ] || CURL=$(command -v curl) || { RES="Falta curl para la sincronización remota"; return 1; }
+	poner_hora_real "$URL/remoto/ping" || { RES="No se pudo ajustar el reloj"; return 1; }
+	# la carpeta se llama "1) Wi-Fi": el certificado va entre comillas o curl parte la ruta
+	cert() {
+		if [ -f "$WIFI_DIR/cacert.pem" ]; then
+			"$CURL" --cacert "$WIFI_DIR/cacert.pem" "$@"
+		else
+			"$CURL" "$@"
+		fi
+	}
+	SD=${SDCARD_PATH:-/mnt/SDCARD}
+	{
+		for d in "$SD/Roms"/*; do
+			[ -d "$d" ] || continue
+			for f in "$d"/*; do
+				[ -f "$f" ] || continue
+				n=$(basename "$f")
+				case "$n" in .*|map.txt) continue ;; esac
+				printf 'ROM\t%s\n' "${f#"$SD/"}"
+			done
+		done
+		for f in "$SD/Saves"/*/* "$SD/.userdata/shared"/*/*; do
+			[ -f "$f" ] || continue
+			rel=${f#"$SD/"}
+			case "$rel" in *.sav|*.st[0-9]) ;; *) continue ;; esac
+			sum=$(hash_archivo "$f")
+			[ -n "$sum" ] && printf 'FILE\t%s\t%s\n' "$rel" "$sum"
+		done
+	} > /tmp/manifiesto.txt
+	cert -fsS -m 180 -H "X-Sync-Token: $CLAVE" --data-binary @/tmp/manifiesto.txt \
+		"$URL/remoto/plan" -o /tmp/plan.txt || { RES="No se pudo contactar con RomM"; restaurar_hora; return 1; }
+	juegos=0; subidas=0; bajadas=0; conflictos=0; errores=0
+	while IFS=$(printf '\t') read -r op ruta; do
+		[ -n "$op" ] || continue
+		q=$(codificar "$ruta")
+		case "$op" in
+		JUEGO|BAJAR)
+			mkdir -p "$SD/$(dirname "$ruta")"
+			if cert -fS -m 3600 -D /tmp/sync-hdr -H "X-Sync-Token: $CLAVE" \
+				-o "$SD/$ruta.parcial" "$URL/remoto/bajar?ruta=$q"; then
+				mv "$SD/$ruta.parcial" "$SD/$ruta"
+				sum=$(hash_archivo "$SD/$ruta")
+				printf '%s\t%s' "$ruta" "$sum" | cert -fsS -m 60 -H "X-Sync-Token: $CLAVE" \
+					--data-binary @- "$URL/remoto/confirmar" >/dev/null || true
+				if [ "$op" = JUEGO ]; then juegos=$((juegos + 1)); else bajadas=$((bajadas + 1)); fi
+			else
+				rm -f "$SD/$ruta.parcial"
+				errores=$((errores + 1))
+			fi
+			;;
+		SUBIR)
+			resp=$(cert -fsS -m 300 -H "X-Sync-Token: $CLAVE" -T "$SD/$ruta" \
+				"$URL/remoto/subir?ruta=$q") || { errores=$((errores + 1)); continue; }
+			case "$resp" in
+				*conflicto*) conflictos=$((conflictos + 1)) ;;
+				*subida*) subidas=$((subidas + 1)) ;;
+				*BAJAR*) errores=$((errores + 1)) ;;
+			esac
+			;;
+		esac
+	done < /tmp/plan.txt
+	RES=""
+	[ "$juegos" -gt 0 ] && RES="$RES$juegos nuevos, "
+	[ "$subidas" -gt 0 ] && RES="$RES$subidas subidas, "
+	[ "$bajadas" -gt 0 ] && RES="$RES$bajadas bajadas, "
+	[ "$conflictos" -gt 0 ] && RES="$RES$conflictos conflictos, "
+	[ "$errores" -gt 0 ] && RES="$RES$errores errores, "
+	RES=${RES%, }
+	[ -n "$RES" ] || RES="Al día"
+	restaurar_hora
+	return 0
+}
+
 # pide al servidor que sincronice partidas y juegos; deja el resumen en $RES
 sincronizar() {
-	SRV=$(grep -v '^#' servidor.txt 2>/dev/null | tr -d '\r' | awk 'NF' | head -1)
+	LAN=$(direccion_servidor lan)
+	HTTPS=$(direccion_servidor https)
 	RES=""
-	if [ -z "$SRV" ]; then
+	if [ -z "$LAN" ] && [ -z "$HTTPS" ]; then
 		RES="Sin servidor configurado (.wifi/servidor.txt)"; return 1
 	fi
 	animar sincronizando
-	# justo después de conectar el chip puede tardar en ver al servidor: ping y reintentos
-	OK=""
-	for t in 1 2 3 4 5 6; do
-		ping -c 1 -W 2 "${SRV%%:*}" >/dev/null 2>&1
-		$WGET -q -T 5 -O /tmp/sync.txt "http://$SRV/sync?ip=$(get_ip)" && { OK=1; break; }
-		paso "intento $t: servidor $SRV no responde"
-		sleep 2
-	done
-	if [ -z "$OK" ]; then
-		parar_animacion
-		RES="No se pudo contactar con RomM"; return 1
+	if [ -n "$LAN" ]; then
+		OK=""
+		for t in 1 2 3; do
+			ping -c 1 -W 2 "${LAN%%:*}" >/dev/null 2>&1
+			$WGET -q -T 5 -O /tmp/sync.txt "http://$LAN/sync?ip=$(get_ip)" && { OK=1; break; }
+			paso "intento $t: servidor $LAN no responde"
+			sleep 1
+		done
+		if [ -n "$OK" ]; then
+			for i in $(seq 1 180); do
+				sleep 5
+				$WGET -q -T 5 -O /tmp/sync.txt "http://$LAN/estado" || continue
+				head -1 /tmp/sync.txt | grep -q LISTO && break
+			done
+			RES=$(sed -n 2p /tmp/sync.txt)
+			paso "sincronización: $RES"
+			parar_animacion
+			return 0
+		fi
 	fi
-	for i in $(seq 1 180); do
-		sleep 5
-		$WGET -q -T 5 -O /tmp/sync.txt "http://$SRV/estado" || continue
-		head -1 /tmp/sync.txt | grep -q LISTO && break
-	done
-	RES=$(sed -n 2p /tmp/sync.txt)
-	paso "sincronización: $RES"
+	if [ -n "$HTTPS" ] && [ -s "$WIFI_DIR/sync.clave" ]; then
+		paso "casa no responde, sincronizando por la dirección pública"
+		sincronizar_remoto "$HTTPS"
+		paso "sincronización: $RES"
+		parar_animacion
+		return $?
+	fi
 	parar_animacion
-	return 0
+	RES="No se pudo contactar con RomM"
+	return 1
 }
 
 . "$WIFI_DIR/logros.sh"

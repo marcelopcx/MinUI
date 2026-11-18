@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """miyoo-sync: sincroniza una Miyoo Mini Plus (MinUI) con RomM.
 
-La consola, al encender su Wi-Fi, llama a  GET /sync?ip=<ip>  y luego consulta
-GET /estado. El servidor entra al explorador de archivos de la consola
-(filebrowser, puerto 80) y:
+En casa la consola llama a GET /sync y el servidor entra a su explorador de
+archivos. Desde fuera, la consola habla con /remoto (clave SYNC_TOKEN): manda
+la lista de sus archivos y ella misma sube y baja lo que haga falta. El
+servidor no intenta entrar a una IP que no está en la red de casa.
 
   * Juegos: descarga a la consola los juegos de la colección "Miyoo" de RomM.
   * Enlaza por nombre los juegos que ya existen en ambos lados (aunque el
@@ -16,11 +17,12 @@ GET /estado. El servidor entra al explorador de archivos de la consola
 
 Solo usa la biblioteca estándar de Python.
 """
-import hashlib, http.server, json, os, re, threading, time, traceback, unicodedata, uuid
+import hashlib, hmac, http.server, json, os, re, threading, time, traceback, unicodedata, uuid
 import urllib.error, urllib.parse, urllib.request
 
 ROMM = os.environ.get("ROMM_URL", "http://localhost:8082").rstrip("/")
 TOKEN = os.environ["ROMM_TOKEN"]
+SYNC_TOKEN = os.environ.get("SYNC_TOKEN", "")
 PUERTO = int(os.environ.get("PORT", "8043"))
 COLECCION = os.environ.get("COLECCION", "Miyoo")
 DATOS = os.environ.get("DATA_DIR", "/data")
@@ -207,6 +209,173 @@ def guardar_estado(e):
     os.replace(tmp, ESTADO_PATH)
 
 
+def es_red_local(ip):
+    """La consola en casa. 127.0.0.1 y la VPN (100.x) no cuentan."""
+    partes = ip.split(".")
+    if len(partes) != 4 or not all(p.isdigit() for p in partes):
+        return False
+    a, b = int(partes[0]), int(partes[1])
+    if a == 10 or (a == 192 and b == 168):
+        return True
+    return a == 172 and 16 <= b <= 31
+
+
+def decidir(local, remoto, anterior):
+    """Qué hacer con una partida. local/remoto/anterior son md5 o None."""
+    if local == remoto:
+        return "igual"
+    if remoto is None or (local is not None and remoto == anterior):
+        return "subir"
+    if local is None or local == anterior:
+        return "bajar"
+    return "conflicto"
+
+
+def ruta_permitida(ruta):
+    ruta = (ruta or "").replace("\\", "/").strip("/")
+    if not ruta or ".." in ruta.split("/"):
+        return None
+    if ruta.startswith(("Roms/", "Saves/", ".userdata/shared/")):
+        return ruta
+    return None
+
+
+def hash_remoto(romm, tipo, info):
+    if not info:
+        return None
+    hecho = info.get("content_hash") or None
+    if hecho:
+        return hecho
+    return md5(romm.bytes(f"/api/{tipo}/{info['id']}/content"))
+
+
+# El plan de la sincronización remota que está en curso: ruta -> qué hacer.
+plan_actual = {}
+
+
+def construir_plan(texto):
+    """Lee el manifiesto de la consola y prepara bajadas y subidas."""
+    global plan_actual
+    romm, est = RomM(), cargar_estado()
+    roms = romm.roms()
+    en_coleccion = set(romm.coleccion().get("rom_ids") or [])
+    locales, archivos = [], {}
+    for linea in texto.splitlines():
+        partes = linea.split("\t")
+        if len(partes) == 2 and partes[0] == "ROM":
+            ruta = ruta_permitida(partes[1])
+            if ruta and ruta.startswith("Roms/") and ruta.count("/") == 2:
+                locales.append(ruta)
+        elif len(partes) == 3 and partes[0] == "FILE":
+            ruta = ruta_permitida(partes[1])
+            huella = partes[2].strip().lower()
+            if ruta and re.fullmatch(r"[0-9a-f]{32}", huella):
+                archivos[ruta] = huella
+
+    plan = {}
+    for rom in roms:
+        plat = PLATAFORMAS.get(rom.get("platform_slug"))
+        if not plat:
+            continue
+        carpeta, tag, nucleo = plat
+        prefijo = f"Roms/{carpeta}/"
+        nombres = [os.path.basename(p) for p in locales if p.startswith(prefijo)]
+        ya = next((n for n in nombres if mismo_juego(n, rom.get("name") or rom["fs_name"])
+                   or mismo_juego(n, rom["fs_name"])), None)
+        if not ya and rom["id"] in en_coleccion:
+            ext = os.path.splitext(rom["fs_name"])[1].lower()
+            ya = nombre_fat(rom.get("name") or os.path.splitext(rom["fs_name"])[0]) + ext
+            plan[f"{prefijo}{ya}"] = {"op": "juego", "rom_id": rom["id"], "fs_name": rom["fs_name"]}
+        if ya:
+            est["enlaces"][f"{prefijo}{ya}"] = {"rom_id": rom["id"], "tag": tag, "nucleo": nucleo}
+    guardar_estado(est)
+
+    for ruta_rom, info in est["enlaces"].items():
+        archivo = os.path.basename(ruta_rom)
+        tag, nucleo, rom_id = info["tag"], info["nucleo"], info["rom_id"]
+        candidatos = [("saves", f"Saves/{tag}/{archivo}.sav")]
+        candidatos += [("states", f".userdata/shared/{tag}-{nucleo}/{archivo}.st{n}") for n in range(10)]
+        for tipo, ruta in candidatos:
+            if ruta in plan:
+                continue
+            remoto_info = romm.ultimo(tipo, rom_id, os.path.basename(ruta))
+            local = archivos.get(ruta)
+            if local is None and remoto_info is None:
+                continue
+            remoto = hash_remoto(romm, tipo, remoto_info)
+            anterior = est["hashes"].get(ruta)
+            que = decidir(local, remoto, anterior)
+            if que == "igual" and local:
+                est["hashes"][ruta] = local
+            elif que == "bajar":
+                plan[ruta] = {"op": "bajar", "tipo": tipo, "asset_id": remoto_info["id"]}
+            elif que in ("subir", "conflicto"):
+                plan[ruta] = {"op": "subir", "tipo": tipo, "rom_id": rom_id, "nucleo": nucleo,
+                              "nombre": os.path.basename(ruta), "asset_id": (remoto_info or {}).get("id")}
+    guardar_estado(est)
+    plan_actual = plan
+    lineas = []
+    for ruta, item in plan.items():
+        verbo = {"juego": "JUEGO", "bajar": "BAJAR", "subir": "SUBIR"}[item["op"]]
+        lineas.append(f"{verbo}\t{ruta}")
+    log(f"plan remoto: {len(lineas)} acciones")
+    return "\n".join(lineas) + ("\n" if lineas else "")
+
+
+def contenido_bajada(ruta):
+    item = plan_actual.get(ruta)
+    if not item or item["op"] not in ("juego", "bajar"):
+        return None, None
+    romm = RomM()
+    if item["op"] == "juego":
+        datos = romm.bytes(f"/api/roms/{item['rom_id']}/content/{urllib.parse.quote(item['fs_name'])}")
+    else:
+        datos = romm.bytes(f"/api/{item['tipo']}/{item['asset_id']}/content")
+    huella = md5(datos)
+    item["md5"] = huella
+    return datos, huella
+
+
+def aplicar_subida(ruta, contenido):
+    item = plan_actual.get(ruta)
+    if not item or item["op"] != "subir":
+        return None
+    romm, est = RomM(), cargar_estado()
+    local = md5(contenido)
+    remoto_info = romm.ultimo(item["tipo"], item["rom_id"], item["nombre"])
+    remoto = hash_remoto(romm, item["tipo"], remoto_info)
+    que = decidir(local, remoto, est["hashes"].get(ruta))
+    if que == "igual":
+        est["hashes"][ruta] = local
+        guardar_estado(est)
+        return "igual"
+    if que == "bajar":
+        return "BAJAR"
+    if que == "conflicto" and remoto_info:
+        base, ext = item["nombre"].rsplit(".", 1)
+        respaldo = f"{base} (servidor {time.strftime('%Y-%m-%d %H%M')}).{ext}"
+        romm.subir(item["tipo"], item["rom_id"], item["nucleo"], respaldo,
+                   romm.bytes(f"/api/{item['tipo']}/{remoto_info['id']}/content"))
+        log(f"CONFLICTO {ruta}: respaldo '{respaldo}'")
+    if que in ("subir", "conflicto"):
+        romm.subir(item["tipo"], item["rom_id"], item["nucleo"], item["nombre"], contenido)
+        log(f"subida remota {ruta}")
+    est["hashes"][ruta] = local
+    guardar_estado(est)
+    return "conflicto" if que == "conflicto" else "subida"
+
+
+def confirmar_bajada(ruta, huella):
+    item = plan_actual.get(ruta)
+    if not item or item.get("md5") != huella:
+        return False
+    if item["op"] == "bajar":
+        est = cargar_estado()
+        est["hashes"][ruta] = huella
+        guardar_estado(est)
+    return True
+
+
 # ----------------------------------------------------------- sincronización ---
 def sincronizar(ip):
     romm, miyoo, est = RomM(), Consola(ip), cargar_estado()
@@ -312,13 +481,43 @@ class Servidor(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(b)
 
+    def responder_bytes(self, datos, extra=None):
+        self.send_response(200)
+        self.send_header("Content-Type", "application/octet-stream")
+        self.send_header("Content-Length", str(len(datos)))
+        for k, v in (extra or {}).items():
+            self.send_header(k, v)
+        self.end_headers()
+        self.wfile.write(datos)
+
+    def cuerpo(self, maximo):
+        try:
+            n = int(self.headers.get("Content-Length", "0"))
+        except ValueError:
+            n = -1
+        if n < 0 or n > maximo:
+            return None
+        return self.rfile.read(n)
+
+    def autorizado(self):
+        if not SYNC_TOKEN:
+            self.responder("sincronización remota no configurada\n", 503)
+            return False
+        dado = self.headers.get("X-Sync-Token", "")
+        if not hmac.compare_digest(dado, SYNC_TOKEN):
+            self.responder("clave incorrecta\n", 401)
+            return False
+        return True
+
     def do_GET(self):
         url = urllib.parse.urlparse(self.path)
         q = urllib.parse.parse_qs(url.query)
         if url.path == "/sync":
-            ip = (q.get("ip") or [self.client_address[0]])[0]
-            if not re.fullmatch(r"\d+\.\d+\.\d+\.\d+", ip):
-                return self.responder("ip no válida\n", 400)
+            # Solo la red de casa, y solo hacia quien llama: no se acepta una IP
+            # arbitraria (desde internet eso sería un salto a otra máquina).
+            ip = self.client_address[0]
+            if not es_red_local(ip):
+                return self.responder("esta sincronización solo funciona en casa\n", 403)
             with candado:
                 if not ejecucion["corriendo"]:
                     ejecucion.update(corriendo=True, ip=ip, resumen="Sincronizando...")
@@ -328,7 +527,80 @@ class Servidor(http.server.BaseHTTPRequestHandler):
             with candado:
                 return self.responder(("CORRIENDO" if ejecucion["corriendo"] else "LISTO") + "\n"
                                       + ejecucion["resumen"] + "\n")
+        if url.path == "/remoto/ping":
+            if not self.autorizado():
+                return
+            return self.responder("OK\n")
+        if url.path == "/remoto/bajar":
+            if not self.autorizado():
+                return
+            ruta = ruta_permitida((q.get("ruta") or [""])[0])
+            if not ruta:
+                log(f"ruta rechazada en bajar: {(q.get('ruta') or [''])[0][:160]!r}")
+                return self.responder("ruta no válida\n", 400)
+            try:
+                datos, huella = contenido_bajada(ruta)
+            except Exception as e:
+                log(f"bajada remota {ruta}\n{traceback.format_exc()}")
+                return self.responder(f"Error: {e}"[:200], 500)
+            if datos is None:
+                return self.responder("no está en el plan\n", 404)
+            return self.responder_bytes(datos, {"X-Content-MD5": huella})
         self.responder("miyoo-sync\n")
+
+    def do_POST(self):
+        url = urllib.parse.urlparse(self.path)
+        q = urllib.parse.parse_qs(url.query)
+        if url.path == "/remoto/plan":
+            if not self.autorizado():
+                return
+            cuerpo = self.cuerpo(2 << 20)
+            if cuerpo is None:
+                return self.responder("manifiesto demasiado grande\n", 413)
+            try:
+                return self.responder(construir_plan(cuerpo.decode("utf-8", "replace")))
+            except Exception as e:
+                log(traceback.format_exc())
+                return self.responder(f"Error: {e}"[:200], 500)
+        if url.path == "/remoto/confirmar":
+            if not self.autorizado():
+                return
+            cuerpo = self.cuerpo(4096)
+            if not cuerpo or b"\t" not in cuerpo:
+                return self.responder("falta la ruta\n", 400)
+            ruta, huella = cuerpo.decode("utf-8", "replace").split("\t", 1)
+            ruta = ruta_permitida(ruta)
+            if ruta and confirmar_bajada(ruta, huella.strip().lower()):
+                return self.responder("OK\n")
+            return self.responder("no coincide\n", 409)
+        if url.path == "/remoto/subir":
+            return self._subir(q)
+        self.responder("miyoo-sync\n", 404)
+
+    def do_PUT(self):
+        url = urllib.parse.urlparse(self.path)
+        if url.path == "/remoto/subir":
+            return self._subir(urllib.parse.parse_qs(url.query))
+        self.responder("miyoo-sync\n", 404)
+
+    def _subir(self, q):
+        if not self.autorizado():
+            return
+        ruta = ruta_permitida((q.get("ruta") or [""])[0])
+        if not ruta:
+            log(f"ruta rechazada en subir: {(q.get('ruta') or [''])[0][:160]!r}")
+            return self.responder("ruta no válida\n", 400)
+        contenido = self.cuerpo(80 << 20)
+        if contenido is None:
+            return self.responder("archivo demasiado grande\n", 413)
+        try:
+            resultado = aplicar_subida(ruta, contenido)
+        except Exception as e:
+            log(f"subida remota {ruta}\n{traceback.format_exc()}")
+            return self.responder(f"Error: {e}"[:200], 500)
+        if resultado is None:
+            return self.responder("no está en el plan\n", 404)
+        self.responder(resultado + "\n")
 
     def log_message(self, *a):
         pass

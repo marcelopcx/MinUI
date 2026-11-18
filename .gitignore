@@ -40,3 +40,6 @@ FAKESD
 # RetroAchievements: se descargan al compilar minarch
 workspace/all/minarch/rcheevos
 workspace/all/minarch/libchdr
+
+# animaciones crudas del tema PS2 (>100 MB, se regeneran con scripts/ps2_animaciones.sh)
+skeleton/Temas/*/*.rgb
