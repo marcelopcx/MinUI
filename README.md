@@ -1,110 +1,83 @@
-# MinUI
+# MinUI en español para Miyoo Mini Plus
 
-MinUI is a focused, custom launcher and libretro frontend for [a variety of retro handhelds](#supported-devices).
+Versión personalizada de [MinUI](https://github.com/shauninman/MinUI), el launcher y frontend de libretro para
+consolas retro portátiles, adaptada a una **Miyoo Mini Plus**: interfaz en **español**, **temas** con fondo, colores,
+música y animaciones, **Wi-Fi** con sincronización de juegos y partidas con **RomM**, **logros de RetroAchievements**
+sin conexión, juegos **arcade** y herramientas para el día a día.
 
-<img src="github/minui-main.png" width=320 /> <img src="github/minui-menu-gbc.png" width=320 /> 
+> **Fork personal.** MinUI fue archivado por su autor en noviembre de 2025; este fork sigue desde esa versión y solo
+> se prueba en la Miyoo Mini Plus.
 
-## Features
+| Clásico | Nebula |
+|---|---|
+| ![Tema Clásico](docs/img/tema-clasico.png) | ![Tema Nebula](docs/img/tema-nebula.png) |
+| **PS2** (con animación de fondo, música y arranque de juego) | **Herramientas** |
+| ![Tema PS2](docs/img/tema-ps2.png) | ![Herramientas](docs/img/herramientas.png) |
 
-- Simple launcher, simple SD card
-- No settings or configuration
-- No boxart, themes, or distractions
-- Automatically hides hidden files
-  and extension and region/version 
-  cruft in display names
-- Consistent in-emulator menu with
-  quick access to save states, disc
-  changing, and emulator options
-- Automatically sleeps after 30 seconds 
-  or press POWER to sleep (and wake)
-- Automatically powers off while asleep
-  after two minutes or hold POWER for
-  one second
-- Automatically resumes right where
-  you left off if powered off while
-  in-game, manually or while asleep
-- Resume from manually created, last 
-  used save state by pressing X in 
-  the launcher instead of A
-- Streamlined emulator frontend 
-  (minarch + libretro cores)
-- Single SD card compatible with
-  multiple devices from different
-  manufacturers
+## Lo que agregué a MinUI
 
-You can [grab the latest version here](https://github.com/shauninman/MinUI/releases).
 
-> Devices with a physical power switch
-> use MENU to sleep and wake instead of
-> POWER. Once asleep the device can safely
-> be powered off manually with the switch.
+- **Interfaz en español**: menú principal, menú del juego, opciones y descripciones. Las configuraciones guardadas
+  siguen en inglés por dentro, así los `.cfg` existentes funcionan igual.
+- **Temas**: fondo, colores de la lista y de la barra, fuente y estilo de selección, elegibles en
+  **Herramientas → Temas**. El tema **PS2** suma una animación de fondo, música en el menú y una animación al abrir
+  un juego. Se pueden importar fondos de temas de Onion.
+- **Batería en porcentaje** con el valor real, y la herramienta **Batería** con voltaje, estado de carga y un
+  medidor de consumo por minuto.
+- **Wi-Fi**: encender y apagar, ver la IP, explorador de archivos web en la consola y apagado automático tras 3
+  minutos sin conexión.
+- **Sincronización con RomM**: descarga los juegos de una colección de RomM y sincroniza partidas y estados en los
+  dos sentidos, con el servicio `miyoo-sync` en un servidor de la casa.
+- **Logros de RetroAchievements sin conexión**: se detectan mientras juegas, con aviso y sonido, y se envían a
+  retroachievements.org al sincronizar.
+- **Arcade**: paks de CPS1, CPS2, CPS3, Neo Geo, FBNeo y MAME, con pantalla de "Cargando…".
+- **Orden personalizado** en los menús con el prefijo `N) ` (oculto al mostrar el nombre) y herramientas reducidas a
+  las que se usan: Wi-Fi, Batería, Archivos, Fecha y hora y Temas.
+- **Arreglo**: el efecto de pantalla *Línea* ya no cierra el emulador de PlayStation a 640×480.
 
-## Supported consoles
+## Temas
 
-Base:
+| Tema | Cómo se ve |
+|---|---|
+| **Clásico** | El aspecto original de MinUI: fondo negro y selección en píldora blanca |
+| **Nebula** | Fondo de nebulosa violeta con estrellas y selección en celeste |
+| **PS2** | Inspirado en el menú de la PlayStation 2: animación de fondo, música ambiente, selección en azul y animación al abrir un juego |
 
-- Game Boy
-- Game Boy Color
-- Game Boy Advance
-- Nintendo Entertainment System
-- Super Nintendo Entertainment System
-- Sega Genesis
-- PlayStation
+Los temas van en la carpeta `Temas/` de la SD y se cambian desde **Herramientas → Temas**. Cómo crear uno, importar
+un tema de Onion y generar las animaciones: [guía de temas](docs/Temas.md).
 
-Extras:
+## Instalación
 
-- Neo Geo Pocket (and Color)
-- Pico-8
-- Pokémon mini
-- Sega Game Gear
-- Sega Master System
-- Super Game Boy
-- TurboGrafx-16 (and TurboGrafx-CD)
-- Virtual Boy
+Igual que MinUI: se compila con Docker y se copia a la SD.
 
-## Supported Devices
+```bash
+git clone https://github.com/marcelopcx/MinUI.git
+cd MinUI
+make PLATFORMS=miyoomini
+```
 
-| Device | Added | Status |
-| -- | -- | -- |
-| Anbernic RG28xx | MinUI-20240429b-2 | Legacy |
-| Anbernic RG34xx | MinUI-20241227-0 | Legacy |
-| Anbernic RG34xxSP | MinUI-20250920-0 | Legacy |
-| Anbernic RG35xx | MinUI-20230922b-2 | Legacy |
-| Anbernic RG35xx Plus | MinUI-20240106b-0 | Legacy |
-| Anbernic RG35xxH | MinUI-20240120b-1 | Legacy |
-| Anbernic RG35xxSP | MinUI-20240525-0 | Legacy |
-| Anbernic RG40xxH | MinUI-20240717-1 | Legacy |
-| Anbernic RG40xxV | MinUI-20240831-0 | Legacy | 
-| Anbernic RG CubeXX | MinUI-202401028-0 | Legacy | 
-| GKD Pixel | MinUI-20240120b-1 | Legacy |
-| M17 | MinUI-20231126b-2 | Legacy |
-| MagicX XU Mini M | MinUI-20240831-0 | Legacy | 
-| MagicX Mini Zero 28 | MinUI-20250111-0 | Legacy |
-| Miyoo A30 | MinUI-20240705-0 | Legacy |
-| Miyoo Flip | MinUI-20250111-0 | Legacy |
-| Miyoo Mini | MinUI-20230922b-2 | Legacy |
-| Miyoo Mini Flip | MinUI-20251023-0 | Legacy |
-| Miyoo Mini Plus | MinUI-20230922b-2 | Legacy |
-| Powkiddy RGB30 | MinUI-20231014b-1 | Legacy |
-| Trimui Brick | MinUI-20241028-0 | Legacy |
-| Trimui Smart | MinUI-20230922b-2 | Legacy |
-| Trimui Smart Pro | MinUI-20231111b-2 | Legacy |
+Los núcleos de arcade no van en el repositorio; se copian de Onion OS con `scripts/nucleos-arcade.sh /Volumes/<SD>`.
+Los temas se pueden enviar a la consola por Wi-Fi con `python3 scripts/desplegar_temas.py <IP-de-la-consola>`.
 
-> [!NOTE]
-> **Active** actively working on compatibility and improvements specific to this device  
-> **Maintained** inheriting improvements to common functionality  
-> **Legacy** will be retired in a future update  
-> **Retired** removed from repo, no longer updated or packaged with new releases
+## Documentación
 
-## Legacy versions
+| Documento | Contenido |
+|---|---|
+| [Cambios en detalle](LEEME.md) | Todo lo agregado al fork, archivo por archivo, y cómo compilar |
+| [Temas](docs/Temas.md) | Usar, crear e importar temas; animaciones y música del tema PS2 |
+| [miyoo-sync](servidor/miyoo-sync) | Servicio que sincroniza la consola con RomM |
+| [MinUI original](https://github.com/shauninman/MinUI) | Proyecto original, dispositivos compatibles y documentación en inglés |
 
-The original Trimui Model S version of MinUI (2021/04/03-2021/08/06) has been archived [here](https://github.com/shauninman/MinUI-Legacy-Trimui-Model-S).
+## Estructura del proyecto
 
-The sequel, MiniUI for the Miyoo Mini (2022/04/20-2022/10/23), has been archived [here](https://github.com/shauninman/MiniUI-Legacy-Miyoo-Mini).
+```
+workspace/all/minui/      launcher (menú principal)
+workspace/all/minarch/    frontend de libretro (menú del juego, logros)
+workspace/all/common/     código compartido: interfaz, temas y utilidades
+workspace/miyoomini/      plataforma Miyoo Mini: batería, núcleos y parches
+skeleton/                 contenido de la SD: sistema, herramientas, emuladores y temas
+scripts/                  importar temas de Onion, animaciones, despliegue y núcleos arcade
+servidor/miyoo-sync/      servicio de sincronización con RomM (Docker)
+docs/                     guía de temas y capturas
+```
 
-The return of MinUI for the original Anbernic RG35XX (2023/02/26-2023/03/26) has been archived [here](https://github.com/shauninman/MinUI-Legacy-RG35XX).
-
-The current MinUI which introduced support for multiple devices starting with the Trimui Smart, Miyoo Mini (and Plus), and the original Anbernic RG35XX was released on [2023/09/22][init-release] with the initial functional commit 6 months earlier on [2023/03/27][init-commit].
-
-[init-release]:https://github.com/shauninman/MinUI/releases/tag/v20230922b-2
-[init-commit]:https://github.com/shauninman/MinUI/commit/53e0296ea5a2794290fb5783765af6cee0063445#diff-b993e61ab6e66a19b67c88cfb98261aa9267d250de8bb56463662f67aae1a558
