@@ -83,3 +83,7 @@ servidor/miyoo-sync/      servicio de sincronización con RomM (Docker)
 docs/                     guía de temas y capturas
 ```
 
+
+---
+
+<p align="center"><em>Dedicated to Javier Pérez (@kaucrow)</em></p>
