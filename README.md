@@ -1,5 +1,9 @@
 # MinUI en español para Miyoo Mini Plus
 
+> **English:** Spanish fork of MinUI for the Miyoo Mini Plus, adding themes with animated backgrounds and menu music,
+> Wi-Fi tools with game and save sync to RomM, offline RetroAchievements, arcade cores and battery tools.
+> Documentation is in Spanish.
+
 Versión personalizada de [MinUI](https://github.com/shauninman/MinUI), el launcher y frontend de libretro para
 consolas retro portátiles, adaptada a una **Miyoo Mini Plus**: interfaz en **español**, **temas** con fondo, colores,
 música y animaciones, **Wi-Fi** con sincronización de juegos y partidas con **RomM**, **logros de RetroAchievements**
