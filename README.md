@@ -14,9 +14,10 @@ sin conexión, juegos **arcade** y herramientas para el día a día.
 
 ## Lo que agregué a MinUI
 
-<table width="100%">
-<tr>
-<td valign="top" width="62%">
+<p align="center">
+  <img src="docs/img/herramientas.png" alt="Menú Herramientas con el tema Clásico" width="400"><br>
+  <sub>Herramientas, con el tema Clásico</sub>
+</p>
 
 - **Interfaz en español**: menú principal, menú del juego, opciones y descripciones. Las configuraciones guardadas
   siguen en inglés por dentro, así los `.cfg` existentes funcionan igual.
@@ -35,14 +36,6 @@ sin conexión, juegos **arcade** y herramientas para el día a día.
 - **Orden personalizado** en los menús con el prefijo `N) ` (oculto al mostrar el nombre) y herramientas reducidas a
   las que se usan: Wi-Fi, Batería, Archivos, Fecha y hora y Temas.
 - **Arreglo**: el efecto de pantalla *Línea* ya no cierra el emulador de PlayStation a 640×480.
-
-</td>
-<td valign="top" align="center" width="38%">
-<img src="docs/img/herramientas.png" alt="Menú Herramientas con el tema Clásico" width="300"><br>
-<sub>Herramientas, con el tema Clásico</sub>
-</td>
-</tr>
-</table>
 
 ## Temas
 
